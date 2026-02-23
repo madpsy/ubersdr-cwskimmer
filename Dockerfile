@@ -7,7 +7,7 @@ ENV LC_ALL C.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 RUN dpkg --add-architecture i386
-RUN apt-get update && apt-get -y install cabextract xvfb novnc x11vnc xdotool wget tar dbus-x11 supervisor net-tools gnupg2 procps wine xfce4 innoextract unzip fonts-liberation fonts-dejavu-core
+RUN apt-get update && apt-get -y install vim cabextract xvfb novnc x11vnc xdotool wget tar dbus-x11 supervisor net-tools gnupg2 procps wine xfce4 innoextract unzip fonts-liberation fonts-dejavu-core
 # Contrib enable
 #RUN sed -r -i 's/^deb(.*)$/deb\1 contrib/g' /etc/apt/sources.list
 #RUN apt-get -qqy autoclean && rm -rf /tmp/* /var/tmp/*
