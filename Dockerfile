@@ -56,7 +56,6 @@ ADD ./install.sh /install
 WORKDIR /root/
 
 FROM installation as config
-# FIXME: config vars here -e RIGSERVER=10.101.1.53 -e RIGSERVER_CAT_PORT=1234 -e RIGSERVER_PTT_PORT=4321 
 
 # XFCE config
 ADD ./config/xfce4 /root/.config/xfce4
@@ -64,6 +63,8 @@ ADD ./config/xfce4 /root/.config/xfce4
 ADD ./config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 ADD ./config/startup.sh /bin
 ADD ./config/startup_sound.sh /bin
+ADD ./config/cwskimmer-entrypoint.sh /bin
+RUN chmod +x /bin/cwskimmer-entrypoint.sh
 
 # Configuration stuff
 ENV PATH_INI_SKIMSRV "/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini"
@@ -80,9 +81,9 @@ ENV LOGFILE_UBERSDR /root/ubersdr_driver_log_file.txt
 ENV LOGIFLE_AGGREGATOR /root/AggregatorLog.txt
 
 ## Configuration
-ENV QTH KA12aa
-ENV NAME "Mr. X"
-ENV SQUARE KA12aa
+ENV QTH "Dalgety Bay"
+ENV NAME "Nathan"
+ENV SQUARE IO86ha
 ENV UBERSDR_HOST ka9q_ubersdr
 ENV UBERSDR_PORT 8080
 
@@ -90,6 +91,9 @@ EXPOSE 7373
 EXPOSE 7300
 EXPOSE 7550
 
-ENTRYPOINT ["startup.sh"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD timeout 5 bash -c '</dev/tcp/localhost/7300' || exit 1
+
+ENTRYPOINT ["cwskimmer-entrypoint.sh"]
 CMD ["/usr/bin/supervisord"]
 

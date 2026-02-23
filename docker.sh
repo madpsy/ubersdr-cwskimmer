@@ -7,6 +7,11 @@
 
 set -e
 
+# Ensure data directory and INI files exist for bind mounts
+mkdir -p data
+touch data/SkimSrv.ini
+touch data/UberSDRIntf.ini
+
 # Parse arguments
 VERSION="0.9"
 NO_PUSH=false

@@ -6,6 +6,7 @@ services:
         image: madpsy/ubersdr-cwskimmer:latest
         container_name: cwskimmer
         privileged: true
+        init: true  # Enable tini init to reap zombie processes from background watchers
         
         environment:
             # Station Configuration
@@ -17,23 +18,32 @@ services:
             # UberSDR Configuration
             - UBERSDR_HOST=${UBERSDR_HOST:-ka9q_ubersdr}
             - UBERSDR_PORT=${UBERSDR_PORT:-8080}
+            
+            # Service Control
+            - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
+        
+        healthcheck:
+            test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/7300' || exit 1"]
+            interval: 30s
+            timeout: 10s
+            start_period: 60s
+            retries: 3
         
         ports:
             - "7373:7373"  # noVNC web interface
             - "7300:7300"  # SkimSrv telnet server
             - "7550:7550"  # RBN Aggregator
-        
         volumes:
-            # Persistent volume for SkimSrv application
-            - skimsrv:/skimmersrv_1.6/app
-            # Persistent volume for SkimSrv configuration
-            - skimsrv_config:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv
+            # Bind mount for INI files - preserves configuration across restarts
+            - ./data/SkimSrv.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini
+            - ./data/UberSDRIntf.ini:/skimmersrv_1.6/app/UberSDRIntf.ini
+            # Shared volume for restart trigger
+            - restart-trigger:/var/run/restart-trigger
+        
         
         restart: unless-stopped
 
 # Named volumes for persistent storage
 volumes:
-    skimsrv:
-        driver: local
-    skimsrv_config:
+    restart-trigger:
         driver: local

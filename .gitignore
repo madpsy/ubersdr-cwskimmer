@@ -1,0 +1,5 @@
+# Persistent data directory for bind-mounted INI files
+data/
+
+# Environment configuration
+.env

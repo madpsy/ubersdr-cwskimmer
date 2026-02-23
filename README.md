@@ -101,12 +101,18 @@ These are set automatically and typically don't need to be changed:
 
 ### Using Docker Compose (Recommended)
 
-1. Copy the example environment file:
+1. Create the data directory and INI files for bind mounts:
+   ```bash
+   mkdir -p data
+   touch data/SkimSrv.ini data/UberSDRIntf.ini
+   ```
+
+2. Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
 
-2. Edit `.env` with your station details:
+3. Edit `.env` with your station details:
    ```bash
    CALLSIGN=YOUR_CALL
    NAME=Your Name
@@ -116,12 +122,19 @@ These are set automatically and typically don't need to be changed:
    UBERSDR_PORT=8080
    ```
 
-3. Start the container:
+4. Start the container:
    ```bash
    docker-compose up -d
    ```
+   
+   Or use the provided helper script:
+   ```bash
+   ./docker.sh up -d
+   ```
+   
+   The helper script automatically creates the data directory and INI files if they don't exist.
 
-4. Access the web interface:
+5. Access the web interface:
    - Open your browser to `http://localhost:7373`
    - You'll see the XFCE desktop with CW Skimmer running
 
@@ -143,49 +156,112 @@ docker run -d \
   madpsy/ubersdr-cwskimmer:latest
 ```
 
-## SkimSrv Persistent Volumes
+## Automatic Restart Trigger
 
-Two persistent Docker volumes have been configured for SkimSrv that can be shared between containers:
+CW Skimmer supports automatic restart when configuration changes are detected. This is useful when external systems need to trigger a container restart.
 
-1. **skimsrv** - SkimSrv application directory (contains `UberSDRIntf.ini`)
-2. **skimsrv_config** - SkimSrv configuration directory (contains `SkimSrv.ini`)
+### How It Works
 
-### Volume Configuration Details
+1. An external container or process writes a trigger file: `/var/run/restart-trigger/restart-cwskimmer`
+2. CW Skimmer's entrypoint script detects the file and restarts the container
+3. The trigger file is automatically removed after restart
 
-#### Volume 1: skimsrv
-- **Container Path**: `/skimmersrv_1.6/app/`
-- **Volume Name**: `skimsrv`
-- **Contains**: `UberSDRIntf.ini` and application files
+This mechanism is similar to how radiod and caddy restart when triggered by UberSDR in the ka9q_ubersdr project.
 
-#### Volume 2: skimsrv_config
-- **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/`
-- **Volume Name**: `skimsrv_config`
-- **Contains**: `SkimSrv.ini` and user configuration
+### Manual Trigger
 
-### Docker Compose Volume Configuration
+You can manually trigger a CW Skimmer restart from within another container that shares the `restart-trigger` volume:
 
-The volumes are defined in the `docker-compose.yml` file:
+```bash
+docker exec <other-container> touch /var/run/restart-trigger/restart-cwskimmer
+```
+
+Or from the host if you have access to the volume:
+
+```bash
+docker exec cwskimmer touch /var/run/restart-trigger/restart-cwskimmer
+```
+
+The CW Skimmer container will detect the file and restart within 0.5 seconds.
+
+### Sharing the Restart Trigger Volume
+
+To enable another container to trigger CW Skimmer restarts, add the `restart-trigger` volume to that container's configuration:
+
+```yaml
+services:
+  another_service:
+    image: some-image
+    volumes:
+      - restart-trigger:/var/run/restart-trigger
+```
+
+Then reference the shared volume in the volumes section:
 
 ```yaml
 volumes:
-  # Persistent volume for SkimSrv application
-  - skimsrv:/skimmersrv_1.6/app
-  # Persistent volume for SkimSrv configuration
-  - skimsrv_config:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv
-
-# Named volumes for persistent storage
-volumes:
-  skimsrv:
-    driver: local
-  skimsrv_config:
-    driver: local
+  restart-trigger:
+    external: true
+    name: ubersdr-cwskimmer_restart-trigger
 ```
 
-### Volume Benefits
+## Persistent Configuration
 
-1. **Persistence**: Configuration survives container restarts and removals
-2. **Shareability**: Other containers can mount the same volume to access the configuration
-3. **Backup**: Easy to backup and restore using Docker volume commands
+Configuration files are persisted using bind mounts to the host filesystem, allowing easy access and modification:
+
+### INI File Bind Mounts
+
+Two configuration files are bind-mounted from the `./data/` directory:
+
+1. **SkimSrv.ini** - SkimSrv configuration (callsign, QTH, name, grid square)
+   - **Host Path**: `./data/SkimSrv.ini`
+   - **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini`
+
+2. **UberSDRIntf.ini** - UberSDR driver configuration (host, port)
+   - **Host Path**: `./data/UberSDRIntf.ini`
+   - **Container Path**: `/skimmersrv_1.6/app/UberSDRIntf.ini`
+
+### Docker Compose Volume Configuration
+
+```yaml
+volumes:
+  # Bind mount for INI files - preserves configuration across restarts
+  - ./data/SkimSrv.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini
+  - ./data/UberSDRIntf.ini:/skimmersrv_1.6/app/UberSDRIntf.ini
+  # Shared volume for restart trigger
+  - restart-trigger:/var/run/restart-trigger
+```
+
+### First Run Initialization
+
+On first run, if the INI files don't exist or are empty, the startup script automatically initializes them with template values. The files are then configured with your environment variables (CALLSIGN, QTH, etc.).
+
+### Configuration Preservation
+
+The startup script intelligently handles configuration:
+- **Empty placeholders**: Automatically filled with environment variables
+- **Existing values**: Preserved across container restarts
+- **User modifications**: Respected and not overwritten
+
+This allows you to:
+- Edit INI files directly on the host in `./data/`
+- Modify settings through the application UI
+- Change environment variables for initial setup only
+
+### Bind Mount Benefits
+
+1. **Easy Access**: Configuration files are directly accessible on the host filesystem
+2. **Simple Backup**: Just copy the `./data/` directory
+3. **Version Control**: Can track configuration changes in git (if desired)
+4. **No Volume Conflicts**: Application files remain in the container image
+
+### Restart Trigger Volume
+
+The `restart-trigger` volume is used for coordinating container restarts:
+
+- **Container Path**: `/var/run/restart-trigger/`
+- **Volume Name**: `restart-trigger`
+- **Purpose**: Allows external containers to trigger CW Skimmer restarts by creating the `restart-cwskimmer` file
 
 ### Sharing Volumes with Other Containers
 
