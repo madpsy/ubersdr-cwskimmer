@@ -23,4 +23,17 @@ services:
             - "7300:7300"  # SkimSrv telnet server
             - "7550:7550"  # RBN Aggregator
         
+        volumes:
+            # Persistent volume for SkimSrv application
+            - skimsrv:/skimmersrv_1.6/app
+            # Persistent volume for SkimSrv configuration
+            - skimsrv_config:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv
+        
         restart: unless-stopped
+
+# Named volumes for persistent storage
+volumes:
+    skimsrv:
+        driver: local
+    skimsrv_config:
+        driver: local
