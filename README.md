@@ -99,7 +99,24 @@ These are set automatically and typically don't need to be changed:
 
 ## Usage
 
-### Using Docker Compose (Recommended)
+### Quick Start (Recommended)
+
+Use the provided start script which handles all setup automatically:
+
+```bash
+./start.sh
+```
+
+On first run, it will:
+1. Create the data directory and INI files
+2. Copy `.env.example` to `.env`
+3. Prompt you to edit `.env` with your configuration
+
+After editing `.env`, run `./start.sh` again to start the container.
+
+### Manual Setup
+
+If you prefer to set up manually:
 
 1. Create the data directory and INI files for bind mounts:
    ```bash
@@ -112,7 +129,7 @@ These are set automatically and typically don't need to be changed:
    cp .env.example .env
    ```
 
-3. Edit `.env` with your station details:
+3. Edit `.env` with your station details (no quotes needed for values with spaces):
    ```bash
    CALLSIGN=YOUR_CALL
    NAME=Your Name
@@ -124,19 +141,14 @@ These are set automatically and typically don't need to be changed:
 
 4. Start the container:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
-   
-   Or use the provided helper script:
-   ```bash
-   ./docker.sh up -d
-   ```
-   
-   The helper script automatically creates the data directory and INI files if they don't exist.
 
-5. Access the web interface:
-   - Open your browser to `http://localhost:7373`
-   - You'll see the XFCE desktop with CW Skimmer running
+### Accessing the Interface
+
+- Open your browser to `http://localhost:7373`
+- You'll see the XFCE desktop with CW Skimmer running
+- View logs: `docker compose logs -f cwskimmer`
 
 ### Using Docker Run
 
