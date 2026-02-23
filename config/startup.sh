@@ -40,10 +40,10 @@ FreqCalibration=1
 EOF
 fi
 
-# Configure Skimmer Server - only if placeholders are still empty
-echo "Checking SkimSrv configuration at $PATH_INI_SKIMSRV"
-if [ -f "$PATH_INI_SKIMSRV" ] && grep -q "^Call=[[:space:]]*$" "$PATH_INI_SKIMSRV" 2>/dev/null; then
-    echo "Configuring SkimSrv with Callsign: $CALLSIGN, QTH: $QTH, Name: $NAME, Grid: $SQUARE"
+# Configure Skimmer Server - always set from .env values
+echo "Configuring SkimSrv at $PATH_INI_SKIMSRV"
+if [ -f "$PATH_INI_SKIMSRV" ]; then
+    echo "Setting SkimSrv with Callsign: $CALLSIGN, QTH: $QTH, Name: $NAME, Grid: $SQUARE"
     # Use temp file for bind-mounted files (sed -i doesn't work on bind mounts)
     # Escape special characters in variables for sed
     CALLSIGN_ESC=$(printf '%s\n' "$CALLSIGN" | sed 's/[[\.*^$/]/\\&/g')
@@ -51,15 +51,13 @@ if [ -f "$PATH_INI_SKIMSRV" ] && grep -q "^Call=[[:space:]]*$" "$PATH_INI_SKIMSR
     NAME_ESC=$(printf '%s\n' "$NAME" | sed 's/[[\.*^$/]/\\&/g')
     SQUARE_ESC=$(printf '%s\n' "$SQUARE" | sed 's/[[\.*^$/]/\\&/g')
     
-    sed "s/^Call=[[:space:]]*$/Call=$CALLSIGN_ESC/g" "$PATH_INI_SKIMSRV" | \
-    sed "s/^QTH=[[:space:]]*$/QTH=$QTH_ESC/g" | \
-    sed "s/^Name=[[:space:]]*$/Name=$NAME_ESC/g" | \
-    sed "s/^Square=[[:space:]]*$/Square=$SQUARE_ESC/g" > "$PATH_INI_SKIMSRV.tmp"
+    sed "s/^Call=.*/Call=$CALLSIGN_ESC/g" "$PATH_INI_SKIMSRV" | \
+    sed "s/^QTH=.*/QTH=$QTH_ESC/g" | \
+    sed "s/^Name=.*/Name=$NAME_ESC/g" | \
+    sed "s/^Square=.*/Square=$SQUARE_ESC/g" > "$PATH_INI_SKIMSRV.tmp"
     cat "$PATH_INI_SKIMSRV.tmp" > "$PATH_INI_SKIMSRV"
     rm -f "$PATH_INI_SKIMSRV.tmp"
     echo "SkimSrv.ini configured successfully"
-else
-    echo "SkimSrv.ini already configured, preserving existing values"
 fi
 
 # Configure RBN Aggregator
@@ -88,25 +86,20 @@ swap_iq=1
 EOF
 fi
 
-# Configure UberSDR driver - only if file exists and needs configuration
-echo "Checking UberSDR driver configuration at $PATH_INI_UBERSDR"
+# Configure UberSDR driver - always set from .env values
+echo "Configuring UberSDR driver at $PATH_INI_UBERSDR"
 if [ -f "$PATH_INI_UBERSDR" ]; then
-    # Check if Host/Port need to be set (look for placeholder, empty, or default values)
-    if grep -q "^Host=[[:space:]]*$\|^Host=placeholder\|^Host=localhost\|^Host=ubersdr\.local\|^Host=ka9q_ubersdr" "$PATH_INI_UBERSDR" 2>/dev/null; then
-        echo "Configuring UberSDR driver with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
-        # Use temp file for bind-mounted files (sed -i doesn't work on bind mounts)
-        # Escape special characters in variables for sed
-        UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
-        UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
-        
-        sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR" | \
-        sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR.tmp"
-        cat "$PATH_INI_UBERSDR.tmp" > "$PATH_INI_UBERSDR"
-        rm -f "$PATH_INI_UBERSDR.tmp"
-        echo "UberSDRIntf.ini configured successfully"
-    else
-        echo "UberSDRIntf.ini already configured, preserving existing values"
-    fi
+    echo "Setting UberSDR driver with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
+    # Use temp file for bind-mounted files (sed -i doesn't work on bind mounts)
+    # Escape special characters in variables for sed
+    UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
+    UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
+
+    sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR" | \
+    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR.tmp"
+    cat "$PATH_INI_UBERSDR.tmp" > "$PATH_INI_UBERSDR"
+    rm -f "$PATH_INI_UBERSDR.tmp"
+    echo "UberSDRIntf.ini configured successfully"
 else
     echo "Warning: UberSDRIntf.ini not found at $PATH_INI_UBERSDR"
 fi
