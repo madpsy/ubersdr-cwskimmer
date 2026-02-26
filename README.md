@@ -93,9 +93,11 @@ These are set automatically and typically don't need to be changed:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
-| `PATH_INI_SKIMSRV` | `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini` | SkimSrv configuration file |
+| `PATH_INI_SKIMSRV` | `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini` | SkimSrv instance 1 configuration file |
+| `PATH_INI_SKIMSRV_2` | `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini` | SkimSrv instance 2 configuration file |
 | `PATH_INI_AGGREGATOR` | `/rbnaggregator_6.7/Aggregator.ini` | RBN Aggregator configuration file |
-| `PATH_INI_UBERSDR` | `/skimmersrv_1.6/app/UberSDRIntf.ini` | UberSDR driver configuration file |
+| `PATH_INI_UBERSDR` | `/skimmersrv_1.6/app/UberSDRIntf.ini` | UberSDR driver instance 1 configuration file |
+| `PATH_INI_UBERSDR_2` | `/skimmersrv_1.6-2/app/UberSDRIntf.ini` | UberSDR driver instance 2 configuration file |
 | `LOGFILE_UBERSDR` | `/root/ubersdr_driver_log_file.txt` | UberSDR driver log file |
 | `LOGIFLE_AGGREGATOR` | `/root/AggregatorLog.txt` | RBN Aggregator log file |
 
@@ -113,7 +115,8 @@ These are set automatically and typically don't need to be changed:
 | Port | Service | Description |
 |------|---------|-------------|
 | `7373` | noVNC | Web-based VNC interface for remote desktop access |
-| `7300` | SkimSrv | Telnet server for CW Skimmer control |
+| `7300` | SkimSrv Instance 1 | Telnet server for CW Skimmer instance 1 |
+| `7301` | SkimSrv Instance 2 | Telnet server for CW Skimmer instance 2 |
 | `7550` | RBN Aggregator | RBN Aggregator service port |
 
 ## Usage
@@ -248,15 +251,23 @@ Configuration files are persisted using bind mounts to the host filesystem, allo
 
 ### INI File Bind Mounts
 
-Two configuration files are bind-mounted from the `./data/` directory:
+Four configuration files are bind-mounted from the `./data/` directory:
 
-1. **SkimSrv.ini** - SkimSrv configuration (callsign, QTH, name, grid square)
+1. **SkimSrv.ini** - SkimSrv instance 1 configuration (callsign, QTH, name, grid square, bands)
    - **Host Path**: `./data/SkimSrv.ini`
    - **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini`
 
-2. **UberSDRIntf.ini** - UberSDR driver configuration (host, port)
+2. **SkimSrv-2.ini** - SkimSrv instance 2 configuration (callsign, QTH, name, grid square, bands)
+   - **Host Path**: `./data/SkimSrv-2.ini`
+   - **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini`
+
+3. **UberSDRIntf.ini** - UberSDR driver configuration for instance 1 (host, port)
    - **Host Path**: `./data/UberSDRIntf.ini`
    - **Container Path**: `/skimmersrv_1.6/app/UberSDRIntf.ini`
+
+4. **UberSDRIntf-2.ini** - UberSDR driver configuration for instance 2 (host, port)
+   - **Host Path**: `./data/UberSDRIntf-2.ini`
+   - **Container Path**: `/skimmersrv_1.6-2/app/UberSDRIntf.ini`
 
 ### Docker Compose Volume Configuration
 
@@ -264,7 +275,9 @@ Two configuration files are bind-mounted from the `./data/` directory:
 volumes:
   # Bind mount for INI files - preserves configuration across restarts
   - ./data/SkimSrv.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini
+  - ./data/SkimSrv-2.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini
   - ./data/UberSDRIntf.ini:/skimmersrv_1.6/app/UberSDRIntf.ini
+  - ./data/UberSDRIntf-2.ini:/skimmersrv_1.6-2/app/UberSDRIntf.ini
   # Shared volume for restart trigger
   - restart-trigger:/var/run/restart-trigger
 ```
@@ -369,9 +382,20 @@ These values are configured in the startup script at `/bin/startup.sh`.
 
 CW Skimmer can monitor multiple amateur radio bands simultaneously using the 192 kHz bandwidth mode. You can control which bands are active using environment variables.
 
+### Dual Instance Architecture
+
+**Important**: SkimSrv has an 8-band limit per instance. To support monitoring all 10 HF bands, this container runs **two SkimSrv instances**:
+
+- **Instance 1** (port 7300): Handles the first 8 enabled bands
+- **Instance 2** (port 7301): Handles bands 9-10 if enabled
+
+Both instances run automatically:
+- If you enable ≤8 bands: Instance 1 monitors them all, instance 2 runs idle
+- If you enable 9-10 bands: Bands are automatically split between instances
+
 ### How It Works
 
-The startup script automatically configures three key parameters in [`SkimSrv.ini`](config/skimsrv/SkimSrv.ini):
+The startup script automatically configures three key parameters in both [`SkimSrv.ini`](config/skimsrv/SkimSrv.ini) files:
 
 1. **CenterFreqs192**: Fixed list of center frequencies for each band (automatically set)
 2. **CwSegments**: CW portions of each band to monitor (automatically set)
