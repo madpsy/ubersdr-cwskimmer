@@ -2,6 +2,34 @@
 
 This project is based on the original work by [8cH9azbsFifZ](https://github.com/8cH9azbsFifZ/docker-cwskimmer).
 
+## Quick Start
+
+1. Clone the repository:
+```bash
+git clone https://github.com/madpsy/ubersdr-cwskimmer.git
+cd ubersdr-cwskimmer
+```
+
+2. Run the start script:
+```bash
+./start.sh
+```
+
+3. The script will error and prompt you to configure your station. Edit the `.env` file and set your station information:
+```bash
+nano .env
+```
+
+4. Run the start script again:
+```bash
+./start.sh
+```
+
+5. Connect to the VNC web interface at:
+```
+http://ubersdr.local:7373/vnc.html?autoconnect=true
+```
+
 ## Overview
 
 A Docker container that runs CW Skimmer Server with RBN Aggregator and UberSDR driver support. This setup allows you to operate a Reverse Beacon Network (RBN) skimmer station using the ka9q_ubersdr software-defined radio system.
