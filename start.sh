@@ -27,6 +27,6 @@ docker compose up -d
 echo ""
 echo "✓ Container started successfully!"
 echo ""
-echo "Access the web interface at: http://localhost:7373/vnc.html?autoconnect=true"
+echo "Access the web interface at: http://ubersdr.local:7373/vnc.html?autoconnect=true"
 echo "View logs with: docker compose logs -f cwskimmer"
 echo ""
