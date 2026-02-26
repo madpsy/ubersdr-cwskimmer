@@ -64,7 +64,7 @@ services:
 networks:
     sdr-network:
         external: true
-        name: docker_sdr-network
+        name: ubersdr_sdr-network
 
 # Named volumes for persistent storage
 volumes:
