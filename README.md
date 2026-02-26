@@ -68,6 +68,25 @@ A Docker container that runs CW Skimmer Server with RBN Aggregator and UberSDR d
 | `UBERSDR_HOST` | `ka9q_ubersdr` | Hostname or IP of the ka9q_ubersdr server |
 | `UBERSDR_PORT` | `8080` | Port number for ka9q_ubersdr connection |
 
+### Band Selection (192 kHz Mode)
+
+Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `false`:
+
+| Variable | Default | Center Freq | Band | Description |
+|----------|---------|-------------|------|-------------|
+| `BAND_160M` | `false` | 1.891 MHz | 160m | Top band (often noisy) |
+| `BAND_80M` | `true` | 3.591 MHz | 80m | 80 meter band |
+| `BAND_60M` | `true` | 5.355 MHz | 60m | 60 meter band |
+| `BAND_40M` | `true` | 7.091 MHz | 40m | 40 meter band |
+| `BAND_30M` | `true` | 10.191 MHz | 30m | 30 meter band (WARC) |
+| `BAND_20M` | `true` | 14.091 MHz | 20m | 20 meter band |
+| `BAND_17M` | `true` | 18.159 MHz | 17m | 17 meter band (WARC) |
+| `BAND_15M` | `true` | 15.091 MHz | 15m | 15 meter band |
+| `BAND_12M` | `true` | 24.981 MHz | 12m | 12 meter band (WARC) |
+| `BAND_10M` | `true` | 28.091 MHz | 10m | 10 meter band |
+
+**Note**: The center frequencies and CW segments are automatically configured. These settings only control which bands are enabled/disabled.
+
 ### Internal Configuration Paths
 
 These are set automatically and typically don't need to be changed:
@@ -137,6 +156,12 @@ If you prefer to set up manually:
    SQUARE=Your Grid Square
    UBERSDR_HOST=your_ubersdr_host
    UBERSDR_PORT=8080
+
+   # Optional: Enable/disable specific bands
+   BAND_160M=false
+   BAND_80M=true
+   BAND_60M=true
+   # ... etc
    ```
 
 4. Start the container:
@@ -339,6 +364,73 @@ Automatically configured at container startup with:
 - **Square**: Set via `SQUARE` environment variable (default: `IO86ha`)
 
 These values are configured in the startup script at `/bin/startup.sh`.
+
+## Band Configuration
+
+CW Skimmer can monitor multiple amateur radio bands simultaneously using the 192 kHz bandwidth mode. You can control which bands are active using environment variables.
+
+### How It Works
+
+The startup script automatically configures three key parameters in [`SkimSrv.ini`](config/skimsrv/SkimSrv.ini):
+
+1. **CenterFreqs192**: Fixed list of center frequencies for each band (automatically set)
+2. **CwSegments**: CW portions of each band to monitor (automatically set)
+3. **SegmentSel192**: Binary string controlling which bands are enabled (built from your environment variables)
+
+### Configuring Bands
+
+Edit your [`.env`](.env) file to enable or disable specific bands:
+
+```bash
+# Band Selection for 192 kHz Mode
+BAND_160M=false  # 160m often has high noise
+BAND_80M=true
+BAND_60M=true
+BAND_40M=true
+BAND_30M=true
+BAND_20M=true
+BAND_17M=true
+BAND_15M=true
+BAND_12M=true
+BAND_10M=true
+```
+
+### Band Details
+
+| Band | Center Freq | CW Segment | Typical Use |
+|------|-------------|------------|-------------|
+| 160m | 1.891 MHz | 1.800-1.840 MHz | Long distance, high noise |
+| 80m | 3.591 MHz | 3.500-3.570 MHz | Regional/DX, day/night |
+| 60m | 5.355 MHz | 5.258-5.370 MHz | Regional, limited allocation |
+| 40m | 7.091 MHz | 7.000-7.070 MHz | Workhorse DX band |
+| 30m | 10.191 MHz | 10.100-10.130 MHz | WARC band, CW only |
+| 20m | 14.091 MHz | 14.000-14.070 MHz | Premier DX band |
+| 17m | 18.159 MHz | 18.068-18.095 MHz | WARC band |
+| 15m | 21.091 MHz | 21.000-21.070 MHz | DX when open |
+| 12m | 24.981 MHz | 24.890-24.920 MHz | WARC band |
+| 10m | 28.091 MHz | 28.000-28.070 MHz | DX during solar max |
+
+### Technical Details
+
+The `SegmentSel192` parameter is a 10-character binary string where each position corresponds to a band:
+
+```
+Position: 0123456789
+Bands:    160 80 60 40 30 20 17 15 12 10
+Example:  0111111111  (all bands except 160m)
+```
+
+The startup script automatically builds this string based on your `BAND_*` environment variables, so you don't need to manually calculate the binary values.
+
+### Why Disable Bands?
+
+You might want to disable certain bands for several reasons:
+
+- **Noise**: 160m often has high atmospheric/man-made noise
+- **Propagation**: Some bands may be dead at certain times
+- **Focus**: Concentrate on specific bands for contests or DXing
+- **Performance**: Reduce CPU load by monitoring fewer bands
+- **Licensing**: Some bands may have restrictions in your jurisdiction
 
 ## Startup Process
 
