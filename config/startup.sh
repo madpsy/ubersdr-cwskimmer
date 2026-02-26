@@ -213,6 +213,14 @@ echo "Configure RBN Aggregator with Callsign: $CALLSIGN using $PATH_INI_AGGREGAT
 #sed -i 's/Skimmer Call=.*/Skimmer Call='$CALLSIGN'/g' "$PATH_INI_AGGREGATOR"
 #cat "$PATH_INI_AGGREGATOR"
 sed -i 's/CW0SKIM/'$CALLSIGN'/g' "$PATH_INI_AGGREGATOR"
+
+# Configure Secondary Skimmer 1 to connect to SkimSrv instance 2 (port 7301)
+echo "Configuring Aggregator Secondary Skimmer 1 for SkimSrv instance 2..."
+sed -i "s/^Secondary Skimmer 1 Callsign=.*/Secondary Skimmer 1 Callsign=$CALLSIGN/g" "$PATH_INI_AGGREGATOR"
+sed -i 's/^Secondary Skimmer 1 Port=.*/Secondary Skimmer 1 Port=7301/g' "$PATH_INI_AGGREGATOR"
+sed -i 's/^Secondary Skimmer 1 Auto Start=.*/Secondary Skimmer 1 Auto Start=True/g' "$PATH_INI_AGGREGATOR"
+echo "Aggregator configured to connect to both SkimSrv instances (ports 7300 and 7301)"
+
 #cat "$PATH_INI_AGGREGATOR"
 # FIXME: only debug stuff
 cp "$PATH_INI_AGGREGATOR" /root/
