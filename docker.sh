@@ -7,11 +7,6 @@
 
 set -e
 
-# Ensure data directory and INI files exist for bind mounts
-mkdir -p data
-touch data/SkimSrv.ini
-touch data/UberSDRIntf.ini
-
 # Parse arguments
 VERSION="0.9"
 NO_PUSH=false
@@ -50,6 +45,17 @@ if [ "$NO_PUSH" = false ]; then
     docker push $IMAGE:latest
 
     echo "Successfully built and pushed $IMAGE:$VERSION and $IMAGE:latest"
+
+    # Commit and push changes to git
+    echo "Committing and pushing changes to git..."
+    git add -A
+    if git diff --staged --quiet; then
+        echo "No changes to commit"
+    else
+        git commit -m "Build and push version $VERSION"
+        git push
+        echo "Changes pushed to git"
+    fi
 else
     echo "Successfully built $IMAGE:$VERSION and $IMAGE:latest (skipped push)"
 fi
