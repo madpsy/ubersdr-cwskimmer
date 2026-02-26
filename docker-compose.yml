@@ -37,13 +37,17 @@ services:
             - BAND_12M=${BAND_12M:-true}
             - BAND_10M=${BAND_10M:-true}
         
+        # Join the ka9q_ubersdr network for direct container communication
+        networks:
+            - sdr-network
+
         healthcheck:
             test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/7300' || exit 1"]
             interval: 30s
             timeout: 10s
             start_period: 60s
             retries: 3
-        
+
         ports:
             - "7373:7373"  # noVNC web interface
             - "7300:7300"  # SkimSrv instance 1 telnet server
@@ -52,9 +56,15 @@ services:
         volumes:
             # Shared volume for restart trigger
             - restart-trigger:/var/run/restart-trigger
-        
-        
+
+
         restart: unless-stopped
+
+# Join the external sdr-network created by ka9q_ubersdr stack
+networks:
+    sdr-network:
+        external: true
+        name: docker_sdr-network
 
 # Named volumes for persistent storage
 volumes:

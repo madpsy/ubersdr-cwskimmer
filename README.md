@@ -119,6 +119,23 @@ These are set automatically and typically don't need to be changed:
 | `7301` | SkimSrv Instance 2 | Telnet server for CW Skimmer instance 2 |
 | `7550` | RBN Aggregator | RBN Aggregator service port |
 
+## Docker Network Configuration
+
+This container joins the `docker_sdr-network` created by the ka9q_ubersdr stack. This allows:
+
+- **Direct container-to-container communication** with ka9q_ubersdr
+- **Use container names as hostnames** (e.g., `UBERSDR_HOST=ka9q_ubersdr`)
+- **No need to expose UberSDR ports** to the host
+- **Better isolation** and security
+
+### Network Requirements
+
+The ka9q_ubersdr stack must be running first to create the `docker_sdr-network`. If you get a network error when starting cwskimmer, ensure:
+
+1. The ka9q_ubersdr stack is running: `cd /path/to/ka9q_ubersdr/docker && docker compose up -d`
+2. The network exists: `docker network ls | grep sdr`
+3. The network name matches: `docker_sdr-network` (or adjust in [`docker-compose.yml`](docker-compose.yml))
+
 ## Usage
 
 ### Quick Start (Recommended)
