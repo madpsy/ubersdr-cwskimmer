@@ -72,6 +72,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     : ${BAND_15M:=true}
     : ${BAND_12M:=true}
     : ${BAND_10M:=true}
+    : ${FREQ_CALIBRATION:=1}
 
     # Build array of enabled bands (in order)
     ENABLED_BANDS=()
@@ -142,7 +143,8 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000/g" "$PATH_INI_SKIMSRV" | \
     sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
     sed "s/^SegmentSel192=.*/SegmentSel192=$SEGMENT_SEL_1/g" | \
-    sed "s/^Port=.*/Port=7300/g" > "$PATH_INI_SKIMSRV.tmp"
+    sed "s/^Port=.*/Port=7300/g" | \
+    sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" > "$PATH_INI_SKIMSRV.tmp"
     cat "$PATH_INI_SKIMSRV.tmp" > "$PATH_INI_SKIMSRV"
     rm -f "$PATH_INI_SKIMSRV.tmp"
 
@@ -201,7 +203,8 @@ EOF
     sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000/g" | \
     sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
     sed "s/^SegmentSel192=.*/SegmentSel192=$SEGMENT_SEL_2/g" | \
-    sed "s/^Port=.*/Port=7301/g" > "$PATH_INI_SKIMSRV_2.tmp"
+    sed "s/^Port=.*/Port=7301/g" | \
+    sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" > "$PATH_INI_SKIMSRV_2.tmp"
     cat "$PATH_INI_SKIMSRV_2.tmp" > "$PATH_INI_SKIMSRV_2"
     rm -f "$PATH_INI_SKIMSRV_2.tmp"
 

@@ -245,65 +245,55 @@ volumes:
     name: ubersdr-cwskimmer_restart-trigger
 ```
 
-## Persistent Configuration
+## Configuration Management
 
-Configuration files are persisted using bind mounts to the host filesystem, allowing easy access and modification:
+All configuration is managed through environment variables in your [`.env`](.env) file. Configuration files are automatically generated at container startup based on these variables.
 
-### INI File Bind Mounts
+### Environment-Based Configuration
 
-Four configuration files are bind-mounted from the `./data/` directory:
+The startup script automatically configures:
 
-1. **SkimSrv.ini** - SkimSrv instance 1 configuration (callsign, QTH, name, grid square, bands)
-   - **Host Path**: `./data/SkimSrv.ini`
-   - **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini`
+1. **SkimSrv instances** (both 1 and 2):
+   - Station information (callsign, QTH, name, grid square)
+   - Band selection (which bands to monitor)
+   - Center frequencies and CW segments
+   - Frequency calibration
+   - Telnet ports (7300 and 7301)
 
-2. **SkimSrv-2.ini** - SkimSrv instance 2 configuration (callsign, QTH, name, grid square, bands)
-   - **Host Path**: `./data/SkimSrv-2.ini`
-   - **Container Path**: `/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini`
+2. **UberSDR driver** (both instances):
+   - SDR host and port
+   - Calibration settings
 
-3. **UberSDRIntf.ini** - UberSDR driver configuration for instance 1 (host, port)
-   - **Host Path**: `./data/UberSDRIntf.ini`
-   - **Container Path**: `/skimmersrv_1.6/app/UberSDRIntf.ini`
-
-4. **UberSDRIntf-2.ini** - UberSDR driver configuration for instance 2 (host, port)
-   - **Host Path**: `./data/UberSDRIntf-2.ini`
-   - **Container Path**: `/skimmersrv_1.6-2/app/UberSDRIntf.ini`
+3. **RBN Aggregator**:
+   - Primary skimmer connection (port 7300)
+   - Secondary skimmer connection (port 7301)
+   - Station callsign
 
 ### Docker Compose Volume Configuration
 
 ```yaml
 volumes:
-  # Bind mount for INI files - preserves configuration across restarts
-  - ./data/SkimSrv.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini
-  - ./data/SkimSrv-2.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini
-  - ./data/UberSDRIntf.ini:/skimmersrv_1.6/app/UberSDRIntf.ini
-  - ./data/UberSDRIntf-2.ini:/skimmersrv_1.6-2/app/UberSDRIntf.ini
   # Shared volume for restart trigger
   - restart-trigger:/var/run/restart-trigger
 ```
 
-### First Run Initialization
+### Configuration at Startup
 
-On first run, if the INI files don't exist or are empty, the startup script automatically initializes them with template values. The files are then configured with your environment variables (CALLSIGN, QTH, etc.).
+Every time the container starts, the [`startup.sh`](config/startup.sh) script:
+1. Reads environment variables from your `.env` file
+2. Generates fresh INI files with current settings
+3. Configures both SkimSrv instances
+4. Configures both UberSDR driver instances
+5. Configures RBN Aggregator connections
 
-### Configuration Preservation
+### Benefits of Environment-Based Configuration
 
-The startup script intelligently handles configuration:
-- **Empty placeholders**: Automatically filled with environment variables
-- **Existing values**: Preserved across container restarts
-- **User modifications**: Respected and not overwritten
-
-This allows you to:
-- Edit INI files directly on the host in `./data/`
-- Modify settings through the application UI
-- Change environment variables for initial setup only
-
-### Bind Mount Benefits
-
-1. **Easy Access**: Configuration files are directly accessible on the host filesystem
-2. **Simple Backup**: Just copy the `./data/` directory
-3. **Version Control**: Can track configuration changes in git (if desired)
-4. **No Volume Conflicts**: Application files remain in the container image
+1. **Single Source of Truth**: All settings in one `.env` file
+2. **Version Control Friendly**: Track configuration changes in git
+3. **Easy Backup**: Just backup your `.env` file
+4. **No Manual Editing**: No need to edit INI files directly
+5. **Consistent Configuration**: Both instances always have matching settings
+6. **Simple Updates**: Change `.env` and restart container
 
 ### Restart Trigger Volume
 

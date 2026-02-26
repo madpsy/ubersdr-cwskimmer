@@ -4,14 +4,6 @@
 
 set -e
 
-# Ensure data directory and INI files exist for bind mounts
-echo "Setting up data directory..."
-mkdir -p data
-touch data/SkimSrv.ini
-touch data/SkimSrv-2.ini
-touch data/UberSDRIntf.ini
-touch data/UberSDRIntf-2.ini
-
 # Check if .env file exists, if not copy from example
 if [ ! -f .env ]; then
     echo "Creating .env file from .env.example..."

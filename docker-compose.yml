@@ -19,6 +19,9 @@ services:
             - UBERSDR_HOST=${UBERSDR_HOST:-ka9q_ubersdr}
             - UBERSDR_PORT=${UBERSDR_PORT:-8080}
 
+            # Frequency Calibration
+            - FREQ_CALIBRATION=${FREQ_CALIBRATION:-1}
+
             # Service Control
             - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
 
@@ -47,11 +50,6 @@ services:
             - "7301:7301"  # SkimSrv instance 2 telnet server
             - "7550:7550"  # RBN Aggregator
         volumes:
-            # Bind mount for INI files - preserves configuration across restarts
-            - ./data/SkimSrv.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini
-            - ./data/SkimSrv-2.ini:/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini
-            - ./data/UberSDRIntf.ini:/skimmersrv_1.6/app/UberSDRIntf.ini
-            - ./data/UberSDRIntf-2.ini:/skimmersrv_1.6-2/app/UberSDRIntf.ini
             # Shared volume for restart trigger
             - restart-trigger:/var/run/restart-trigger
         
