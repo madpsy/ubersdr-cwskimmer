@@ -30,6 +30,11 @@ nano .env
 http://ubersdr.local:7373/vnc.html?autoconnect=true
 ```
 
+6. Configure ka9q_ubersdr to connect to the Aggregator on port 7550:
+   - The Aggregator provides a telnet interface on port 7550
+   - Configure your ka9q_ubersdr instance to connect to `cwskimmer:7550` (or `ubersdr.local:7550` from outside the Docker network)
+   - This allows ka9q_ubersdr to receive CW spots from the skimmer
+
 ## Overview
 
 A Docker container that runs CW Skimmer Server with RBN Aggregator and UberSDR driver support. This setup allows you to operate a Reverse Beacon Network (RBN) skimmer station using the ka9q_ubersdr software-defined radio system.
