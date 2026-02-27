@@ -22,6 +22,9 @@ services:
             # Frequency Calibration
             - FREQ_CALIBRATION=${FREQ_CALIBRATION:-1}
 
+            # Callsign Validation
+            - MIN_QUALITY=${MIN_QUALITY:-0}
+
             # Service Control
             - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
 
