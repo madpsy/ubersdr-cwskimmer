@@ -88,6 +88,7 @@ COPY ./install/patt3ch/patt3ch.lst /skimmersrv_${V_SKIMMERSRV}/userappdata/Afree
 RUN cp -r /skimmersrv_${V_SKIMMERSRV} /skimmersrv_${V_SKIMMERSRV}-2
 RUN mv /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv.exe /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv-2.exe
 COPY ./config/skimsrv/SkimSrv.ini ${PATH_INI_SKIMSRV_2}
+COPY ./install/patt3ch/patt3ch.lst /skimmersrv_${V_SKIMMERSRV}-2/userappdata/Afreet/Reference/Patt3Ch.lst
 
 ENV LOGFILE_UBERSDR=/root/ubersdr_driver_log_file.txt
 ENV LOGIFLE_AGGREGATOR=/root/AggregatorLog.txt
