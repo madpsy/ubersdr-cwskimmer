@@ -76,19 +76,21 @@ ENV PATH_INI_UBERSDR_2="/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
 # Create directories for both SkimSrv instances
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV})
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV_2})
+RUN mkdir -p /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference
 
 # Configure first SkimSrv instance
 COPY ./config/rbn/Aggregator.ini ${PATH_INI_AGGREGATOR}
 COPY ./config/skimsrv/SkimSrv.ini ${PATH_INI_SKIMSRV}
 RUN cp /ubersdr_driver/* /skimmersrv_${V_SKIMMERSRV}/app/
 RUN rm -f /skimmersrv_${V_SKIMMERSRV}/app/Qs1rIntf.dll
-COPY ./install/patt3ch/patt3ch.lst /skimmersrv_${V_SKIMMERSRV}/userappdata/Afreet/Reference/Patt3Ch.lst
+
+# Copy patt3ch.lst to shared Reference directory (used by both SkimSrv instances)
+COPY ./install/patt3ch/patt3ch.lst /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Patt3Ch.lst
 
 # Create second SkimSrv instance by copying the first
 RUN cp -r /skimmersrv_${V_SKIMMERSRV} /skimmersrv_${V_SKIMMERSRV}-2
 RUN mv /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv.exe /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv-2.exe
 COPY ./config/skimsrv/SkimSrv.ini ${PATH_INI_SKIMSRV_2}
-COPY ./install/patt3ch/patt3ch.lst /skimmersrv_${V_SKIMMERSRV}-2/userappdata/Afreet/Reference/Patt3Ch.lst
 
 ENV LOGFILE_UBERSDR=/root/ubersdr_driver_log_file.txt
 ENV LOGIFLE_AGGREGATOR=/root/AggregatorLog.txt
