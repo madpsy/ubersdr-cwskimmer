@@ -1,17 +1,17 @@
 FROM debian:bookworm AS wine
 
 # Install Wine, XFCE, network audio stuff
-ENV HOME /root
-ENV DEBIAN_FRONTEND noninteractive
-ENV LC_ALL C.UTF-8
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US.UTF-8
+ENV HOME=/root
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LC_ALL=C.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
 RUN dpkg --add-architecture i386
 RUN apt-get update && apt-get -y install vim cabextract xvfb novnc x11vnc xdotool wget tar dbus-x11 supervisor net-tools gnupg2 procps wine xfce4 innoextract unzip fonts-liberation fonts-dejavu-core
 # Contrib enable
 #RUN sed -r -i 's/^deb(.*)$/deb\1 contrib/g' /etc/apt/sources.list
 #RUN apt-get -qqy autoclean && rm -rf /tmp/* /var/tmp/*
-ENV DISPLAY :0
+ENV DISPLAY=:0
 
 # Winetricks update
 WORKDIR /root/
@@ -28,12 +28,12 @@ RUN wine reg add "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSub
 
 FROM wine AS installation
 
-ENV V_SKIMMER 2.1
-ENV V_SKIMMERSRV 1.6
-ENV V_RBNAGGREGATOR 6.7
+ENV V_SKIMMER=2.1
+ENV V_SKIMMERSRV=1.6
+ENV V_RBNAGGREGATOR=6.7
 
 # Copy installation files and extract them
-ADD install /install
+COPY install /install
 WORKDIR /skimmer_1.9
 RUN  unzip /install/Skimmer_1.9/CwSkimmer.zip && innoextract Setup.exe
 WORKDIR /skimmer_${V_SKIMMER}
@@ -51,27 +51,27 @@ RUN wget https://github.com/madpsy/ka9q_ubersdr/releases/download/latest/CW_Skim
 RUN unzip CW_Skimmer.zip
 
 # Add late installer
-ADD ./install.sh /install
+COPY ./install.sh /install
 
 WORKDIR /root/
 
-FROM installation as config
+FROM installation AS config
 
 # XFCE config
-ADD ./config/xfce4 /root/.config/xfce4
+COPY ./config/xfce4 /root/.config/xfce4
 # Add startup stuff
-ADD ./config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-ADD ./config/startup.sh /bin
-ADD ./config/startup_sound.sh /bin
-ADD ./config/cwskimmer-entrypoint.sh /bin
+COPY ./config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./config/startup.sh /bin
+COPY ./config/startup_sound.sh /bin
+COPY ./config/cwskimmer-entrypoint.sh /bin
 RUN chmod +x /bin/cwskimmer-entrypoint.sh
 
 # Configuration stuff
-ENV PATH_INI_SKIMSRV "/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini"
-ENV PATH_INI_SKIMSRV_2 "/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini"
-ENV PATH_INI_AGGREGATOR "/rbnaggregator_${V_RBNAGGREGATOR}/Aggregator.ini"
-ENV PATH_INI_UBERSDR "/skimmersrv_${V_SKIMMERSRV}/app/UberSDRIntf.ini"
-ENV PATH_INI_UBERSDR_2 "/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
+ENV PATH_INI_SKIMSRV="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini"
+ENV PATH_INI_SKIMSRV_2="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini"
+ENV PATH_INI_AGGREGATOR="/rbnaggregator_${V_RBNAGGREGATOR}/Aggregator.ini"
+ENV PATH_INI_UBERSDR="/skimmersrv_${V_SKIMMERSRV}/app/UberSDRIntf.ini"
+ENV PATH_INI_UBERSDR_2="/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
 
 # Create directories for both SkimSrv instances
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV})
@@ -89,15 +89,15 @@ RUN cp -r /skimmersrv_${V_SKIMMERSRV} /skimmersrv_${V_SKIMMERSRV}-2
 RUN mv /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv.exe /skimmersrv_${V_SKIMMERSRV}-2/app/SkimSrv-2.exe
 COPY ./config/skimsrv/SkimSrv.ini ${PATH_INI_SKIMSRV_2}
 
-ENV LOGFILE_UBERSDR /root/ubersdr_driver_log_file.txt
-ENV LOGIFLE_AGGREGATOR /root/AggregatorLog.txt
+ENV LOGFILE_UBERSDR=/root/ubersdr_driver_log_file.txt
+ENV LOGIFLE_AGGREGATOR=/root/AggregatorLog.txt
 
 ## Configuration
-ENV QTH "Dalgety Bay"
-ENV NAME "Nathan"
-ENV SQUARE IO86ha
-ENV UBERSDR_HOST ka9q_ubersdr
-ENV UBERSDR_PORT 8080
+ENV QTH="Dalgety Bay"
+ENV NAME="Nathan"
+ENV SQUARE=IO86ha
+ENV UBERSDR_HOST=ka9q_ubersdr
+ENV UBERSDR_PORT=8080
 
 EXPOSE 7373
 EXPOSE 7300
