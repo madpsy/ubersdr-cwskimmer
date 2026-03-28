@@ -23,7 +23,13 @@ Files are installed into `~/ubersdr/cwskimmer/` (created automatically if it doe
 
 ### Updating
 
-Re-run the same script at any time to pull the latest image and refresh `docker-compose.yml` without touching your `.env`:
+Use the dedicated update script — it pulls the latest image, refreshes `docker-compose.yml`, and restarts the container without touching your `.env`:
+
+```bash
+bash ~/ubersdr/cwskimmer/update.sh
+```
+
+Or re-run the full installer (same effect on an existing install):
 
 ```bash
 bash ~/ubersdr/cwskimmer/install-hub.sh

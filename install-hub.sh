@@ -183,6 +183,17 @@ ENVEOF
     success ".env created"
 fi
 
+# ── Visible symlink: config → .env ────────────────────────────────────────────
+# .env is hidden by default; 'config' is a visible alias for easy editing.
+if [ ! -e config ] && [ ! -L config ]; then
+    ln -s .env config
+    info "Created symlink: config → .env  (edit either file)"
+elif [ -L config ] && [ "$(readlink config)" = ".env" ]; then
+    : # already correct, nothing to do
+else
+    warn "'config' already exists and is not a symlink to .env — skipping symlink creation"
+fi
+
 # ── Network check ──────────────────────────────────────────────────────────────
 header "Checking Docker network..."
 if ! docker network ls --format '{{.Name}}' | grep -q '^ubersdr_sdr-network$'; then

@@ -67,6 +67,16 @@ success "docker-compose.yml updated"
 curl -fsSL "$REPO_RAW/.env.example" -o .env.example
 success "Updated .env.example (your .env was not changed)"
 
+# ── Ensure visible symlink: config → .env ─────────────────────────────────────
+if [ ! -e config ] && [ ! -L config ]; then
+    ln -s .env config
+    info "Created symlink: config → .env  (edit either file)"
+elif [ -L config ] && [ "$(readlink config)" = ".env" ]; then
+    : # already correct
+else
+    warn "'config' already exists and is not a symlink to .env — skipping"
+fi
+
 # ── Refresh this updater script itself ────────────────────────────────────────
 curl -fsSL "$REPO_RAW/update.sh" -o update.sh
 chmod +x update.sh
