@@ -1,0 +1,217 @@
+#!/bin/bash
+# install-hub.sh — End-user installer / updater for ubersdr-cwskimmer
+# Fetches the pre-built image from Docker Hub; no repo clone required.
+#
+# Usage (first time or update):
+#   curl -fsSL https://raw.githubusercontent.com/madpsy/ubersdr-cwskimmer/main/install-hub.sh | bash
+# Or if you already have this file:
+#   bash install-hub.sh
+
+set -e
+
+IMAGE="madpsy/ubersdr-cwskimmer:latest"
+REPO_RAW="https://raw.githubusercontent.com/madpsy/ubersdr-cwskimmer/main"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/ubersdr-cwskimmer}"
+
+# ── Colours ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+
+info()    { echo -e "${CYAN}ℹ ${RESET}$*"; }
+success() { echo -e "${GREEN}✓ ${RESET}$*"; }
+warn()    { echo -e "${YELLOW}⚠ ${RESET}$*"; }
+error()   { echo -e "${RED}✗ ${RESET}$*" >&2; }
+header()  { echo -e "\n${BOLD}${CYAN}$*${RESET}"; }
+
+# ── Prerequisite checks ────────────────────────────────────────────────────────
+header "=== ubersdr-cwskimmer installer ==="
+
+if ! command -v docker &>/dev/null; then
+    error "Docker is not installed. Please install Docker first:"
+    echo "  https://docs.docker.com/engine/install/"
+    exit 1
+fi
+
+if ! docker info &>/dev/null; then
+    error "Docker daemon is not running or you don't have permission to use it."
+    echo "  Try: sudo systemctl start docker"
+    echo "  Or add your user to the docker group: sudo usermod -aG docker \$USER"
+    exit 1
+fi
+
+# docker compose (v2 plugin) or docker-compose (v1 standalone)
+if docker compose version &>/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose &>/dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    error "Docker Compose is not installed. Please install it first:"
+    echo "  https://docs.docker.com/compose/install/"
+    exit 1
+fi
+
+# ── Detect update vs fresh install ────────────────────────────────────────────
+IS_UPDATE=false
+if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
+    IS_UPDATE=true
+fi
+
+# ── Create install directory ───────────────────────────────────────────────────
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
+
+# ── Pull latest image ──────────────────────────────────────────────────────────
+header "Pulling latest image from Docker Hub..."
+docker pull "$IMAGE"
+success "Image up to date: $IMAGE"
+
+# ── Fetch docker-compose.yml (always refresh to pick up upstream changes) ──────
+header "Fetching docker-compose.yml..."
+
+# If updating, back up the existing compose file first
+if [ "$IS_UPDATE" = true ] && [ -f docker-compose.yml ]; then
+    cp docker-compose.yml docker-compose.yml.bak
+    info "Backed up existing docker-compose.yml → docker-compose.yml.bak"
+fi
+
+# Download compose file and strip the 'build: .' line so it uses the Hub image
+curl -fsSL "$REPO_RAW/docker-compose.yml" \
+    | grep -v '^\s*build:' \
+    > docker-compose.yml
+success "docker-compose.yml saved to $INSTALL_DIR"
+
+# ── .env setup ────────────────────────────────────────────────────────────────
+if [ "$IS_UPDATE" = true ] && [ -f .env ]; then
+    # On update: refresh .env.example but keep the user's existing .env intact
+    curl -fsSL "$REPO_RAW/.env.example" -o .env.example
+    success "Updated .env.example (your .env was not changed)"
+else
+    # Fresh install: download .env.example and prompt user to configure
+    curl -fsSL "$REPO_RAW/.env.example" -o .env.example
+
+    header "Station configuration"
+    echo "Please enter your station details (press Enter to keep the default shown):"
+    echo ""
+
+    read -r -p "  Callsign       [MM3NDH]: " INPUT_CALLSIGN
+    CALLSIGN="${INPUT_CALLSIGN:-MM3NDH}"
+
+    read -r -p "  Operator name  [Nathan]: " INPUT_NAME
+    NAME="${INPUT_NAME:-Nathan}"
+
+    read -r -p "  QTH / location [Dalgety Bay]: " INPUT_QTH
+    QTH="${INPUT_QTH:-Dalgety Bay}"
+
+    read -r -p "  Grid square    [IO86ha]: " INPUT_SQUARE
+    SQUARE="${INPUT_SQUARE:-IO86ha}"
+
+    read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
+    UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
+
+    read -r -p "  UberSDR port   [8080]: " INPUT_PORT
+    UBERSDR_PORT="${INPUT_PORT:-8080}"
+
+    echo ""
+    header "Band selection (192 kHz mode)"
+    echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
+    echo ""
+
+    prompt_band() {
+        local band="$1" default="$2"
+        read -r -p "  ${band} [${default}]: " val
+        echo "${val:-$default}"
+    }
+
+    BAND_160M=$(prompt_band "160m" "false")
+    BAND_80M=$(prompt_band  "80m"  "true")
+    BAND_60M=$(prompt_band  "60m"  "true")
+    BAND_40M=$(prompt_band  "40m"  "true")
+    BAND_30M=$(prompt_band  "30m"  "true")
+    BAND_20M=$(prompt_band  "20m"  "true")
+    BAND_17M=$(prompt_band  "17m"  "true")
+    BAND_15M=$(prompt_band  "15m"  "true")
+    BAND_12M=$(prompt_band  "12m"  "true")
+    BAND_10M=$(prompt_band  "10m"  "true")
+
+    cat > .env <<EOF
+# CW Skimmer Docker Configuration
+# Generated by install-hub.sh — edit this file to change settings,
+# then restart the container: docker compose restart
+
+# Station Configuration
+CALLSIGN=${CALLSIGN}
+NAME=${NAME}
+QTH=${QTH}
+SQUARE=${SQUARE}
+
+# UberSDR Configuration
+UBERSDR_HOST=${UBERSDR_HOST}
+UBERSDR_PORT=${UBERSDR_PORT}
+
+# Frequency Calibration (PPM offset; 1 = no correction)
+FREQ_CALIBRATION=1
+
+# Callsign Validation (0 = minimal, 1 = normal, 2 = strict)
+MIN_QUALITY=0
+
+# Service Control
+CWSKIMM_ENABLED=true
+
+# Band Selection for 192 kHz Mode
+BAND_160M=${BAND_160M}
+BAND_80M=${BAND_80M}
+BAND_60M=${BAND_60M}
+BAND_40M=${BAND_40M}
+BAND_30M=${BAND_30M}
+BAND_20M=${BAND_20M}
+BAND_17M=${BAND_17M}
+BAND_15M=${BAND_15M}
+BAND_12M=${BAND_12M}
+BAND_10M=${BAND_10M}
+EOF
+    success ".env created"
+fi
+
+# ── Network check ──────────────────────────────────────────────────────────────
+header "Checking Docker network..."
+if ! docker network ls --format '{{.Name}}' | grep -q '^ubersdr_sdr-network$'; then
+    warn "The external Docker network 'ubersdr_sdr-network' does not exist."
+    echo ""
+    echo "  This network is normally created by the ka9q_ubersdr stack."
+    echo "  If you haven't started that stack yet, do so first, then re-run this script."
+    echo ""
+    echo "  Alternatively, create the network manually and start anyway:"
+    echo "    docker network create ubersdr_sdr-network"
+    echo ""
+    read -r -p "  Create the network now and continue? [y/N]: " CREATE_NET
+    if [[ "$CREATE_NET" =~ ^[Yy]$ ]]; then
+        docker network create ubersdr_sdr-network
+        success "Network 'ubersdr_sdr-network' created"
+    else
+        warn "Skipping network creation. The container will fail to start until the network exists."
+    fi
+else
+    success "Network 'ubersdr_sdr-network' found"
+fi
+
+# ── Start / restart container ──────────────────────────────────────────────────
+header "Starting container..."
+$COMPOSE_CMD pull --quiet   # ensure compose also has the freshest digest
+$COMPOSE_CMD up -d --remove-orphans
+
+echo ""
+if [ "$IS_UPDATE" = true ]; then
+    success "ubersdr-cwskimmer updated and restarted successfully!"
+else
+    success "ubersdr-cwskimmer installed and started successfully!"
+fi
+
+echo ""
+echo -e "  ${BOLD}Web interface:${RESET}  http://$(hostname -f 2>/dev/null || hostname):7373/vnc.html?autoconnect=true"
+echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
+echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/.env"
+echo ""
+echo -e "  View logs:      ${CYAN}docker compose -f $INSTALL_DIR/docker-compose.yml logs -f cwskimmer${RESET}"
+echo -e "  Stop:           ${CYAN}docker compose -f $INSTALL_DIR/docker-compose.yml down${RESET}"
+echo -e "  Update later:   ${CYAN}bash $INSTALL_DIR/install-hub.sh${RESET}"
+echo ""
