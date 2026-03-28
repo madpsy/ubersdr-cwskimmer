@@ -108,8 +108,18 @@ else
     echo "Please enter your station details (press Enter to keep the default shown):"
     echo ""
 
-    read -r -p "  Callsign       [MM3NDH]: " INPUT_CALLSIGN
-    CALLSIGN="${INPUT_CALLSIGN:-MM3NDH}"
+    # Callsign — must not be empty or the example default
+    while true; do
+        read -r -p "  Callsign: " CALLSIGN
+        CALLSIGN="${CALLSIGN^^}"   # uppercase
+        if [ -z "$CALLSIGN" ]; then
+            warn "Callsign cannot be empty."
+        elif [ "$CALLSIGN" = "MM3NDH" ]; then
+            warn "Please enter your own callsign, not the example."
+        else
+            break
+        fi
+    done
 
     read -r -p "  Operator name  [Nathan]: " INPUT_NAME
     NAME="${INPUT_NAME:-Nathan}"
