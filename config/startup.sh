@@ -237,7 +237,7 @@ if [ -f "$PATH_INI_UBERSDR" ] && [ ! -s "$PATH_INI_UBERSDR" ]; then
     cat > "$PATH_INI_UBERSDR" << 'EOF'
 ; UberSDR Interface Configuration File
 [Server]
-Host=ubersdr.local
+Host=172.20.0.1
 Port=8080
 debug_rec=0
 
@@ -271,7 +271,7 @@ if [ -f "$PATH_INI_UBERSDR_2" ] && [ ! -s "$PATH_INI_UBERSDR_2" ]; then
     cat > "$PATH_INI_UBERSDR_2" << 'EOF'
 ; UberSDR Interface Configuration File
 [Server]
-Host=ubersdr.local
+Host=172.20.0.1
 Port=8080
 debug_rec=0
 

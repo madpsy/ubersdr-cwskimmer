@@ -16,7 +16,7 @@ services:
             - SQUARE=${SQUARE:-IO86ha}
 
             # UberSDR Configuration
-            - UBERSDR_HOST=${UBERSDR_HOST:-ka9q_ubersdr}
+            - UBERSDR_HOST=${UBERSDR_HOST:-172.20.0.1}
             - UBERSDR_PORT=${UBERSDR_PORT:-8080}
 
             # Frequency Calibration
