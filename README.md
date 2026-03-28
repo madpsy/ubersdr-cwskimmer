@@ -4,6 +4,8 @@ This project is based on the original work by [8cH9azbsFifZ](https://github.com/
 
 ## Quick Start (recommended — no repo clone needed)
 
+> **Run this on your UberSDR machine** (the Linux host running ka9q-radio / ka9q_ubersdr).
+
 Run the one-line installer. It pulls the pre-built image from Docker Hub, downloads only the files it needs, walks you through station configuration, and starts the container:
 
 ```bash
@@ -13,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/madpsy/ubersdr-cwskimmer/main/insta
 The installer will:
 1. Check that Docker and Docker Compose are installed
 2. Pull `madpsy/ubersdr-cwskimmer:latest` from Docker Hub
-3. Download `docker-compose.yml` and `.env.example` into `~/ubersdr-cwskimmer/`
+3. Download `docker-compose.yml` and `.env.example` into `~/ubersdr/cwskimmer/`
 4. Prompt you for your callsign, QTH, grid square, UberSDR host/port, and band selection
 5. Write a ready-to-use `.env` file
 6. Check for (or offer to create) the `ubersdr_sdr-network` Docker network
@@ -39,12 +41,12 @@ bash ~/ubersdr/cwskimmer/install-hub.sh
 
 Connect to the VNC web interface at:
 ```
-http://<your-host>:7373/vnc.html?autoconnect=true
+http://ubersdr.local:7373/vnc.html?autoconnect=true
 ```
 
 Configure ka9q_ubersdr to connect to the Aggregator on port 7550:
    - The Aggregator provides a telnet interface on port 7550
-   - Configure your ka9q_ubersdr instance to connect to `cwskimmer:7550` (or `<your-host>:7550` from outside the Docker network)
+   - Configure your ka9q_ubersdr instance to connect to `cwskimmer:7550` (or `ubersdr.local:7550` from outside the Docker network)
    - This allows ka9q_ubersdr to receive CW spots from the skimmer
 
 ---
