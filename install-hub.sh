@@ -9,9 +9,13 @@
 #   bash ~/ubersdr/cwskimmer/install-hub.sh
 
 # ── When piped through curl | bash, stdin is the pipe not the terminal.
-#    Re-exec immediately with stdin bound to /dev/tty so read() works.
+#    Save the script to a temp file and re-exec it with /dev/tty as stdin
+#    so that interactive read() prompts work correctly.
 if [ ! -t 0 ]; then
-    exec bash <(cat "$0") "$@" </dev/tty
+    TMPSCRIPT=$(mktemp /tmp/install-hub-XXXXXX.sh)
+    cat > "$TMPSCRIPT"          # drain stdin (the script itself) into the temp file
+    chmod +x "$TMPSCRIPT"
+    exec bash "$TMPSCRIPT" "$@" </dev/tty
 fi
 
 set -e
