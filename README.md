@@ -19,12 +19,14 @@ The installer will:
 6. Check for (or offer to create) the `ubersdr_sdr-network` Docker network
 7. Start the container
 
+Files are installed into `~/ubersdr/cwskimmer/` (created automatically if it doesn't exist).
+
 ### Updating
 
 Re-run the same script at any time to pull the latest image and refresh `docker-compose.yml` without touching your `.env`:
 
 ```bash
-bash ~/ubersdr-cwskimmer/install-hub.sh
+bash ~/ubersdr/cwskimmer/install-hub.sh
 ```
 
 ### After installation

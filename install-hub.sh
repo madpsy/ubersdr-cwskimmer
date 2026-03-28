@@ -11,7 +11,7 @@ set -e
 
 IMAGE="madpsy/ubersdr-cwskimmer:latest"
 REPO_RAW="https://raw.githubusercontent.com/madpsy/ubersdr-cwskimmer/main"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/ubersdr-cwskimmer}"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/ubersdr/cwskimmer}"
 
 # ── Colours ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
