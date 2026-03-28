@@ -77,9 +77,12 @@ else
     warn "'config' already exists and is not a symlink to .env — skipping"
 fi
 
-# ── Refresh this updater script itself ────────────────────────────────────────
-curl -fsSL "$REPO_RAW/update.sh" -o update.sh
-chmod +x update.sh
+# ── Refresh all helper scripts ────────────────────────────────────────────────
+for _script in install-hub.sh update.sh start.sh stop.sh; do
+    curl -fsSL "$REPO_RAW/$_script" -o "$_script"
+    chmod +x "$_script"
+done
+success "Helper scripts updated (install-hub.sh, update.sh, start.sh, stop.sh)"
 
 # ── Restart container ──────────────────────────────────────────────────────────
 header "Restarting container..."
@@ -88,8 +91,12 @@ $COMPOSE_CMD up -d --pull always --remove-orphans
 echo ""
 success "ubersdr-cwskimmer updated and restarted successfully!"
 echo ""
-echo -e "  ${BOLD}Web interface:${RESET}  http://$(hostname -f 2>/dev/null || hostname):7373/vnc.html?autoconnect=true"
+echo -e "  ${BOLD}Web interface:${RESET}  http://ubersdr.local:7373/vnc.html?autoconnect=true"
 echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
+echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/config  (symlink to .env)"
 echo ""
+echo -e "  Start:      ${CYAN}bash $INSTALL_DIR/start.sh${RESET}"
+echo -e "  Stop:       ${CYAN}bash $INSTALL_DIR/stop.sh${RESET}"
+echo -e "  Update:     ${CYAN}bash $INSTALL_DIR/update.sh${RESET}"
 echo -e "  View logs:  ${CYAN}$COMPOSE_CMD -f $INSTALL_DIR/docker-compose.yml logs -f cwskimmer${RESET}"
 echo ""

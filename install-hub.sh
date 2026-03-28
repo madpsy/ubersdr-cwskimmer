@@ -91,9 +91,12 @@ curl -fsSL "$REPO_RAW/docker-compose.yml" \
     > docker-compose.yml
 success "docker-compose.yml saved to $INSTALL_DIR"
 
-# ── Keep a copy of this installer in the install dir for future updates ────────
-curl -fsSL "$REPO_RAW/install-hub.sh" -o install-hub.sh
-chmod +x install-hub.sh
+# ── Fetch all helper scripts into the install dir ─────────────────────────────
+for _script in install-hub.sh update.sh start.sh stop.sh; do
+    curl -fsSL "$REPO_RAW/$_script" -o "$_script"
+    chmod +x "$_script"
+done
+success "Helper scripts installed (install-hub.sh, update.sh, start.sh, stop.sh)"
 
 # ── .env setup ────────────────────────────────────────────────────────────────
 if [ "$IS_UPDATE" = true ] && [ -f .env ]; then
@@ -147,7 +150,7 @@ else
         echo "${val:-$default}"
     }
 
-    BAND_160M=$(prompt_band "160m" "false")
+    BAND_160M=$(prompt_band "160m" "true")
     BAND_80M=$(prompt_band  "80m"  "true")
     BAND_60M=$(prompt_band  "60m"  "true")
     BAND_40M=$(prompt_band  "40m"  "true")
@@ -243,11 +246,12 @@ else
 fi
 
 echo ""
-echo -e "  ${BOLD}Web interface:${RESET}  http://$(hostname -f 2>/dev/null || hostname):7373/vnc.html?autoconnect=true"
+echo -e "  ${BOLD}Web interface:${RESET}  http://ubersdr.local:7373/vnc.html?autoconnect=true"
 echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
-echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/.env"
+echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/config  (symlink to .env)"
 echo ""
+echo -e "  Start:          ${CYAN}bash $INSTALL_DIR/start.sh${RESET}"
+echo -e "  Stop:           ${CYAN}bash $INSTALL_DIR/stop.sh${RESET}"
+echo -e "  Update:         ${CYAN}bash $INSTALL_DIR/update.sh${RESET}"
 echo -e "  View logs:      ${CYAN}$COMPOSE_CMD -f $INSTALL_DIR/docker-compose.yml logs -f cwskimmer${RESET}"
-echo -e "  Stop:           ${CYAN}$COMPOSE_CMD -f $INSTALL_DIR/docker-compose.yml down${RESET}"
-echo -e "  Update later:   ${CYAN}bash $INSTALL_DIR/install-hub.sh${RESET}"
 echo ""
