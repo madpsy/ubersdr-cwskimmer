@@ -92,7 +92,7 @@ curl -fsSL "$REPO_RAW/docker-compose.yml" \
 success "docker-compose.yml saved to $INSTALL_DIR"
 
 # ── Fetch all helper scripts into the install dir ─────────────────────────────
-for _script in install-hub.sh update.sh start.sh stop.sh; do
+for _script in install-hub.sh update.sh start.sh stop.sh restart.sh; do
     curl -fsSL "$REPO_RAW/$_script" -o "$_script"
     chmod +x "$_script"
 done
