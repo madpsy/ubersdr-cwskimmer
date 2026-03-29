@@ -96,7 +96,7 @@ for _script in install-hub.sh update.sh start.sh stop.sh restart.sh; do
     curl -fsSL "$REPO_RAW/$_script" -o "$_script"
     chmod +x "$_script"
 done
-success "Helper scripts installed (install-hub.sh, update.sh, start.sh, stop.sh)"
+success "Helper scripts installed (install-hub.sh, update.sh, start.sh, stop.sh, restart.sh)"
 
 # ── .env setup ────────────────────────────────────────────────────────────────
 if [ "$IS_UPDATE" = true ] && [ -f .env ]; then
@@ -109,7 +109,95 @@ else
 
     header "Station configuration"
 
+    # ── JSON parser helper (jq preferred, python3 fallback) ───────────────────
+    _parse_json() {
+        local json="$1" key="$2"
+        if command -v jq &>/dev/null; then
+            echo "$json" | jq -r "$key // empty" 2>/dev/null
+        else
+            python3 -c "
+import sys, json
+try:
+    d = json.loads(sys.stdin.read())
+    keys = '$key'.lstrip('.').split('.')
+    for k in keys:
+        d = d[k]
+    print(d if d is not None else '')
+except Exception:
+    print('')
+" <<< "$json" 2>/dev/null
+        fi
+    }
+
+    # ── Auto-detect from UberSDR API ───────────────────────────────────────────
+    # Try the default address first (or env-supplied values if already set).
+    # If the API call succeeds, host/port are confirmed and no prompts are needed.
+    # If it fails, fall back to prompting for host/port.
+    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""
+    _try_api() {
+        local host="$1" port="$2"
+        local url="http://${host}:${port}/api/description"
+        local json
+        if json=$(curl -fsSL --max-time 5 "$url" 2>/dev/null); then
+            local cs
+            cs=$(_parse_json "$json" '.receiver.callsign')
+            if [ -n "$cs" ]; then
+                API_CALLSIGN="$cs"
+                API_QTH=$(_parse_json    "$json" '.receiver.location')
+                API_SQUARE=$(_parse_json "$json" '.receiver.gps.maidenhead')
+                return 0
+            fi
+        fi
+        return 1
+    }
+
+    echo ""
+    if [ -n "${UBERSDR_HOST:-}" ] || [ -n "${UBERSDR_PORT:-}" ]; then
+        # Env vars supplied — use them directly, no auto-probe needed
+        UBERSDR_HOST="${UBERSDR_HOST:-172.20.0.1}"
+        UBERSDR_PORT="${UBERSDR_PORT:-8080}"
+        info "Querying UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT}/api/description ..."
+        if _try_api "$UBERSDR_HOST" "$UBERSDR_PORT"; then
+            success "Auto-detected station details from UberSDR API"
+            info "  Callsign : $API_CALLSIGN"
+            [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
+            [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+        else
+            warn "Could not reach UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT} — falling back to prompts"
+        fi
+    else
+        # No env vars — try the default address silently first
+        info "Probing UberSDR API at http://172.20.0.1:8080/api/description ..."
+        if _try_api "172.20.0.1" "8080"; then
+            UBERSDR_HOST="172.20.0.1"
+            UBERSDR_PORT="8080"
+            success "Auto-detected station details from UberSDR API"
+            info "  Callsign : $API_CALLSIGN"
+            [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
+            [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+        else
+            warn "Could not reach UberSDR API at default address — please enter connection details"
+            echo ""
+            read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
+            UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
+            read -r -p "  UberSDR port   [8080]: " INPUT_PORT
+            UBERSDR_PORT="${INPUT_PORT:-8080}"
+            # Try once more with the user-supplied values
+            info "Retrying UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT}/api/description ..."
+            if _try_api "$UBERSDR_HOST" "$UBERSDR_PORT"; then
+                success "Auto-detected station details from UberSDR API"
+                info "  Callsign : $API_CALLSIGN"
+                [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
+                [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+            else
+                warn "Could not reach UberSDR API — station details must be entered manually"
+            fi
+        fi
+    fi
+    echo ""
+
     # ── Callsign ───────────────────────────────────────────────────────────────
+    # Priority: env var > API > prompt
     # Pre-set via env var: CALLSIGN=G0XYZ bash install-hub.sh
     if [ -n "${CALLSIGN:-}" ]; then
         CALLSIGN="${CALLSIGN^^}"
@@ -118,9 +206,10 @@ else
             exit 1
         fi
         info "Using callsign from environment: $CALLSIGN"
+    elif [ -n "$API_CALLSIGN" ]; then
+        CALLSIGN="${API_CALLSIGN^^}"
+        info "Using callsign from API: $CALLSIGN"
     else
-        echo "Please enter your station details (press Enter to keep the default shown):"
-        echo ""
         while true; do
             read -r -p "  Callsign: " CALLSIGN
             CALLSIGN="${CALLSIGN^^}"   # uppercase
@@ -135,54 +224,45 @@ else
     fi
 
     # ── Operator name ──────────────────────────────────────────────────────────
+    # Defaults to callsign. Priority: env var > callsign
     # Pre-set via env var: OPERATOR_NAME="Jane" bash install-hub.sh
     if [ -n "${OPERATOR_NAME:-}" ]; then
         NAME="$OPERATOR_NAME"
         info "Using operator name from environment: $NAME"
     else
-        read -r -p "  Operator name  [Nathan]: " INPUT_NAME
-        NAME="${INPUT_NAME:-Nathan}"
+        NAME="$CALLSIGN"
     fi
 
     # ── QTH ───────────────────────────────────────────────────────────────────
+    # Priority: env var > API > prompt
     # Pre-set via env var: OPERATOR_QTH="London" bash install-hub.sh
     if [ -n "${OPERATOR_QTH:-}" ]; then
         QTH="$OPERATOR_QTH"
         info "Using QTH from environment: $QTH"
+    elif [ -n "$API_QTH" ]; then
+        QTH="$API_QTH"
+        info "Using QTH from API: $QTH"
     else
         read -r -p "  QTH / location [Dalgety Bay]: " INPUT_QTH
         QTH="${INPUT_QTH:-Dalgety Bay}"
     fi
 
     # ── Grid square ────────────────────────────────────────────────────────────
+    # Priority: env var > API > prompt
     # Pre-set via env var: OPERATOR_SQUARE="IO91wm" bash install-hub.sh
     if [ -n "${OPERATOR_SQUARE:-}" ]; then
         SQUARE="$OPERATOR_SQUARE"
         info "Using grid square from environment: $SQUARE"
+    elif [ -n "$API_SQUARE" ]; then
+        SQUARE="$API_SQUARE"
+        info "Using grid square from API: $SQUARE"
     else
         read -r -p "  Grid square    [IO86ha]: " INPUT_SQUARE
         SQUARE="${INPUT_SQUARE:-IO86ha}"
     fi
 
-    # ── UberSDR host ───────────────────────────────────────────────────────────
-    # Pre-set via env var: UBERSDR_HOST="192.168.1.10" bash install-hub.sh
-    if [ -n "${UBERSDR_HOST:-}" ]; then
-        info "Using UberSDR host from environment: $UBERSDR_HOST"
-    else
-        read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
-        UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
-    fi
-
-    # ── UberSDR port ───────────────────────────────────────────────────────────
-    # Pre-set via env var: UBERSDR_PORT=9090 bash install-hub.sh
-    if [ -n "${UBERSDR_PORT:-}" ]; then
-        info "Using UberSDR port from environment: $UBERSDR_PORT"
-    else
-        read -r -p "  UberSDR port   [8080]: " INPUT_PORT
-        UBERSDR_PORT="${INPUT_PORT:-8080}"
-    fi
-
     # ── Band selection ─────────────────────────────────────────────────────────
+    # Priority: ALL_BANDS env var > individual BAND_* env vars > API success (all true) > prompts
     # Pre-set individual bands: BAND_160M=false bash install-hub.sh
     # Enable all bands at once: ALL_BANDS=true bash install-hub.sh
     echo ""
@@ -199,6 +279,12 @@ else
         BAND_17M="${BAND_17M:-true}";   BAND_15M="${BAND_15M:-true}"
         BAND_12M="${BAND_12M:-true}";   BAND_10M="${BAND_10M:-true}"
         info "Band selection loaded from environment variables"
+    elif [ -n "$API_CALLSIGN" ]; then
+        # API succeeded — enable all bands by default, no prompts
+        BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
+        BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
+        BAND_12M=true;  BAND_10M=true
+        info "All bands enabled (auto-detected via API)"
     else
         header "Band selection (192 kHz mode)"
         echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
