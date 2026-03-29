@@ -108,58 +108,119 @@ else
     curl -fsSL "$REPO_RAW/.env.example" -o .env.example
 
     header "Station configuration"
-    echo "Please enter your station details (press Enter to keep the default shown):"
-    echo ""
 
-    # Callsign — must not be empty or the example default
-    while true; do
-        read -r -p "  Callsign: " CALLSIGN
-        CALLSIGN="${CALLSIGN^^}"   # uppercase
-        if [ -z "$CALLSIGN" ]; then
-            warn "Callsign cannot be empty."
-        elif [ "$CALLSIGN" = "N0CALL" ]; then
-            warn "Please enter your own callsign, not the example default (N0CALL)."
-        else
-            break
+    # ── Callsign ───────────────────────────────────────────────────────────────
+    # Pre-set via env var: CALLSIGN=G0XYZ bash install-hub.sh
+    if [ -n "${CALLSIGN:-}" ]; then
+        CALLSIGN="${CALLSIGN^^}"
+        if [ "$CALLSIGN" = "N0CALL" ]; then
+            error "CALLSIGN env var is set to the example default (N0CALL). Please set it to your own callsign."
+            exit 1
         fi
-    done
+        info "Using callsign from environment: $CALLSIGN"
+    else
+        echo "Please enter your station details (press Enter to keep the default shown):"
+        echo ""
+        while true; do
+            read -r -p "  Callsign: " CALLSIGN
+            CALLSIGN="${CALLSIGN^^}"   # uppercase
+            if [ -z "$CALLSIGN" ]; then
+                warn "Callsign cannot be empty."
+            elif [ "$CALLSIGN" = "N0CALL" ]; then
+                warn "Please enter your own callsign, not the example default (N0CALL)."
+            else
+                break
+            fi
+        done
+    fi
 
-    read -r -p "  Operator name  [Nathan]: " INPUT_NAME
-    NAME="${INPUT_NAME:-Nathan}"
+    # ── Operator name ──────────────────────────────────────────────────────────
+    # Pre-set via env var: OPERATOR_NAME="Jane" bash install-hub.sh
+    if [ -n "${OPERATOR_NAME:-}" ]; then
+        NAME="$OPERATOR_NAME"
+        info "Using operator name from environment: $NAME"
+    else
+        read -r -p "  Operator name  [Nathan]: " INPUT_NAME
+        NAME="${INPUT_NAME:-Nathan}"
+    fi
 
-    read -r -p "  QTH / location [Dalgety Bay]: " INPUT_QTH
-    QTH="${INPUT_QTH:-Dalgety Bay}"
+    # ── QTH ───────────────────────────────────────────────────────────────────
+    # Pre-set via env var: OPERATOR_QTH="London" bash install-hub.sh
+    if [ -n "${OPERATOR_QTH:-}" ]; then
+        QTH="$OPERATOR_QTH"
+        info "Using QTH from environment: $QTH"
+    else
+        read -r -p "  QTH / location [Dalgety Bay]: " INPUT_QTH
+        QTH="${INPUT_QTH:-Dalgety Bay}"
+    fi
 
-    read -r -p "  Grid square    [IO86ha]: " INPUT_SQUARE
-    SQUARE="${INPUT_SQUARE:-IO86ha}"
+    # ── Grid square ────────────────────────────────────────────────────────────
+    # Pre-set via env var: OPERATOR_SQUARE="IO91wm" bash install-hub.sh
+    if [ -n "${OPERATOR_SQUARE:-}" ]; then
+        SQUARE="$OPERATOR_SQUARE"
+        info "Using grid square from environment: $SQUARE"
+    else
+        read -r -p "  Grid square    [IO86ha]: " INPUT_SQUARE
+        SQUARE="${INPUT_SQUARE:-IO86ha}"
+    fi
 
-    read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
-    UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
+    # ── UberSDR host ───────────────────────────────────────────────────────────
+    # Pre-set via env var: UBERSDR_HOST="192.168.1.10" bash install-hub.sh
+    if [ -n "${UBERSDR_HOST:-}" ]; then
+        info "Using UberSDR host from environment: $UBERSDR_HOST"
+    else
+        read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
+        UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
+    fi
 
-    read -r -p "  UberSDR port   [8080]: " INPUT_PORT
-    UBERSDR_PORT="${INPUT_PORT:-8080}"
+    # ── UberSDR port ───────────────────────────────────────────────────────────
+    # Pre-set via env var: UBERSDR_PORT=9090 bash install-hub.sh
+    if [ -n "${UBERSDR_PORT:-}" ]; then
+        info "Using UberSDR port from environment: $UBERSDR_PORT"
+    else
+        read -r -p "  UberSDR port   [8080]: " INPUT_PORT
+        UBERSDR_PORT="${INPUT_PORT:-8080}"
+    fi
 
+    # ── Band selection ─────────────────────────────────────────────────────────
+    # Pre-set individual bands: BAND_160M=false bash install-hub.sh
+    # Enable all bands at once: ALL_BANDS=true bash install-hub.sh
     echo ""
-    header "Band selection (192 kHz mode)"
-    echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
-    echo ""
+    if [ "${ALL_BANDS:-}" = "true" ]; then
+        BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
+        BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
+        BAND_12M=true;  BAND_10M=true
+        info "All bands enabled (ALL_BANDS=true)"
+    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}" ]; then
+        # At least one band env var is set — use env vars for all, defaulting unset ones to true
+        BAND_160M="${BAND_160M:-true}"; BAND_80M="${BAND_80M:-true}"
+        BAND_60M="${BAND_60M:-true}";   BAND_40M="${BAND_40M:-true}"
+        BAND_30M="${BAND_30M:-true}";   BAND_20M="${BAND_20M:-true}"
+        BAND_17M="${BAND_17M:-true}";   BAND_15M="${BAND_15M:-true}"
+        BAND_12M="${BAND_12M:-true}";   BAND_10M="${BAND_10M:-true}"
+        info "Band selection loaded from environment variables"
+    else
+        header "Band selection (192 kHz mode)"
+        echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
+        echo ""
 
-    prompt_band() {
-        local band="$1" default="$2"
-        read -r -p "  ${band} [${default}]: " val
-        echo "${val:-$default}"
-    }
+        prompt_band() {
+            local band="$1" default="$2"
+            read -r -p "  ${band} [${default}]: " val
+            echo "${val:-$default}"
+        }
 
-    BAND_160M=$(prompt_band "160m" "true")
-    BAND_80M=$(prompt_band  "80m"  "true")
-    BAND_60M=$(prompt_band  "60m"  "true")
-    BAND_40M=$(prompt_band  "40m"  "true")
-    BAND_30M=$(prompt_band  "30m"  "true")
-    BAND_20M=$(prompt_band  "20m"  "true")
-    BAND_17M=$(prompt_band  "17m"  "true")
-    BAND_15M=$(prompt_band  "15m"  "true")
-    BAND_12M=$(prompt_band  "12m"  "true")
-    BAND_10M=$(prompt_band  "10m"  "true")
+        BAND_160M=$(prompt_band "160m" "true")
+        BAND_80M=$(prompt_band  "80m"  "true")
+        BAND_60M=$(prompt_band  "60m"  "true")
+        BAND_40M=$(prompt_band  "40m"  "true")
+        BAND_30M=$(prompt_band  "30m"  "true")
+        BAND_20M=$(prompt_band  "20m"  "true")
+        BAND_17M=$(prompt_band  "17m"  "true")
+        BAND_15M=$(prompt_band  "15m"  "true")
+        BAND_12M=$(prompt_band  "12m"  "true")
+        BAND_10M=$(prompt_band  "10m"  "true")
+    fi
 
     cat > .env <<ENVEOF
 # CW Skimmer Docker Configuration
