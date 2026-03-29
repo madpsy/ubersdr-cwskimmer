@@ -78,11 +78,11 @@ else
 fi
 
 # ── Refresh all helper scripts ────────────────────────────────────────────────
-for _script in install-hub.sh update.sh start.sh stop.sh; do
+for _script in install-hub.sh update.sh start.sh stop.sh restart.sh; do
     curl -fsSL "$REPO_RAW/$_script" -o "$_script"
     chmod +x "$_script"
 done
-success "Helper scripts updated (install-hub.sh, update.sh, start.sh, stop.sh)"
+success "Helper scripts updated (install-hub.sh, update.sh, start.sh, stop.sh, restart.sh)"
 
 # ── Restart container ──────────────────────────────────────────────────────────
 header "Restarting container..."

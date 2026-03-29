@@ -1,8 +1,10 @@
 #!/bin/bash
 # Start CW Skimmer container
-# This script ensures data directory exists and starts the container
 
 set -e
+
+# Always run from the directory containing this script
+cd "$(dirname "$(realpath "$0")")"
 
 # Check if .env file exists, if not copy from example
 if [ ! -f .env ]; then

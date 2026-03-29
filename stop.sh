@@ -3,6 +3,9 @@
 
 set -e
 
+# Always run from the directory containing this script
+cd "$(dirname "$(realpath "$0")")"
+
 echo "Stopping CW Skimmer container..."
 docker compose down
 
