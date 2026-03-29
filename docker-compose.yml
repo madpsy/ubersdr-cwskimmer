@@ -40,6 +40,7 @@ services:
             - BAND_15M=${BAND_15M:-true}
             - BAND_12M=${BAND_12M:-true}
             - BAND_10M=${BAND_10M:-true}
+            - BAND_10M_BEACONS=${BAND_10M_BEACONS:-true}
         
         # Join the ka9q_ubersdr network for direct container communication
         networks:

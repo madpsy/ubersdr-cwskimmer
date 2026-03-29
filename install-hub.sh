@@ -269,21 +269,22 @@ except Exception:
     if [ "${ALL_BANDS:-}" = "true" ]; then
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
-        BAND_12M=true;  BAND_10M=true
+        BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
         info "All bands enabled (ALL_BANDS=true)"
-    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}" ]; then
+    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}${BAND_10M_BEACONS:-}" ]; then
         # At least one band env var is set — use env vars for all, defaulting unset ones to true
         BAND_160M="${BAND_160M:-true}"; BAND_80M="${BAND_80M:-true}"
         BAND_60M="${BAND_60M:-true}";   BAND_40M="${BAND_40M:-true}"
         BAND_30M="${BAND_30M:-true}";   BAND_20M="${BAND_20M:-true}"
         BAND_17M="${BAND_17M:-true}";   BAND_15M="${BAND_15M:-true}"
         BAND_12M="${BAND_12M:-true}";   BAND_10M="${BAND_10M:-true}"
+        BAND_10M_BEACONS="${BAND_10M_BEACONS:-true}"
         info "Band selection loaded from environment variables"
     elif [ -n "$API_CALLSIGN" ]; then
         # API succeeded — enable all bands by default, no prompts
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
-        BAND_12M=true;  BAND_10M=true
+        BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
         info "All bands enabled (auto-detected via API)"
     else
         header "Band selection"
@@ -306,6 +307,7 @@ except Exception:
         BAND_15M=$(prompt_band  "15m"  "true")
         BAND_12M=$(prompt_band  "12m"  "true")
         BAND_10M=$(prompt_band  "10m"  "true")
+        BAND_10M_BEACONS=$(prompt_band "10m beacons (28.2-28.3 MHz)" "true")
     fi
 
     cat > .env <<ENVEOF
@@ -346,6 +348,7 @@ BAND_17M=${BAND_17M}
 BAND_15M=${BAND_15M}
 BAND_12M=${BAND_12M}
 BAND_10M=${BAND_10M}
+BAND_10M_BEACONS=${BAND_10M_BEACONS}
 ENVEOF
     success ".env created"
 fi
