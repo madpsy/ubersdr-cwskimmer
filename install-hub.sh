@@ -117,8 +117,8 @@ else
         CALLSIGN="${CALLSIGN^^}"   # uppercase
         if [ -z "$CALLSIGN" ]; then
             warn "Callsign cannot be empty."
-        elif [ "$CALLSIGN" = "MM3NDH" ]; then
-            warn "Please enter your own callsign, not the example."
+        elif [ "$CALLSIGN" = "N0CALL" ]; then
+            warn "Please enter your own callsign, not the example default (N0CALL)."
         else
             break
         fi
