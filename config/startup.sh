@@ -27,12 +27,12 @@ AnnUser=
 MinQuality=0
 [Skimmer]
 CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
-CenterFreqs96=1845500,3545500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500
+CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500
 CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000
 SegmentSel48=00010000000000000
-SegmentSel96=001111111
+SegmentSel96=0011111111000
 SegmentSel192=011111111
-CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000
+CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000
 ThreadCount=2
 DeviceName=01 UberSDR-IQ192
 Rate=2
@@ -58,7 +58,32 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     cat "$PATH_INI_SKIMSRV.tmp" > "$PATH_INI_SKIMSRV"
     rm -f "$PATH_INI_SKIMSRV.tmp"
 
-    # Build SegmentSel192 based on band enable/disable environment variables
+    # Determine sample rate setting
+    : ${SAMPLE_RATE:=192}
+    : ${FREQ_CALIBRATION:=1}
+
+    if [ "$SAMPLE_RATE" = "96" ]; then
+        RATE_VALUE=1
+        SEGMENT_SEL_KEY="SegmentSel96"
+        # CenterFreqs96 has 13 entries (index 0-12):
+        # 0=160m, 1=80m, 2=60m, 3=40m, 4=30m, 5=20m, 6=17m, 7=15m, 8=12m, 9=10m(low), 10=10m(high), 11=6m(low), 12=6m(high)
+        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M")
+        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9)
+        SEL_LENGTH=13
+    else
+        SAMPLE_RATE=192
+        RATE_VALUE=2
+        SEGMENT_SEL_KEY="SegmentSel192"
+        # CenterFreqs192 has 10 entries (index 0-9):
+        # 0=160m, 1=80m, 2=60m, 3=40m, 4=30m, 5=20m, 6=17m, 7=15m, 8=12m, 9=10m
+        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M")
+        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9)
+        SEL_LENGTH=10
+    fi
+
+    echo "Sample rate: ${SAMPLE_RATE} kHz (Rate=${RATE_VALUE}, key=${SEGMENT_SEL_KEY})"
+
+    # Build SegmentSel based on band enable/disable environment variables
     echo "Building band selection from environment variables..."
 
     # Default values if not set
@@ -72,16 +97,14 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     : ${BAND_15M:=true}
     : ${BAND_12M:=true}
     : ${BAND_10M:=true}
-    : ${FREQ_CALIBRATION:=1}
 
-    # Build array of enabled bands (in order)
-    ENABLED_BANDS=()
-    BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M")
     BAND_VARS=("$BAND_160M" "$BAND_80M" "$BAND_60M" "$BAND_40M" "$BAND_30M" "$BAND_20M" "$BAND_17M" "$BAND_15M" "$BAND_12M" "$BAND_10M")
 
+    # Build list of enabled segment indices
+    ENABLED_BANDS=()
     for i in {0..9}; do
         if [ "${BAND_VARS[$i]}" = "true" ]; then
-            ENABLED_BANDS+=("$i")
+            ENABLED_BANDS+=("${BAND_SEG_IDX[$i]}")
         fi
     done
 
@@ -92,14 +115,14 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     # Instance 1: First 8 enabled bands (or all if <=8)
     # Instance 2: Remaining bands (9th and 10th if enabled)
 
-    # Build SegmentSel192 for instance 1
-    SEGMENT_SEL_1="0000000000"
-    SEGMENT_SEL_2="0000000000"
+    # Build zero-filled SegmentSel strings of correct length
+    SEGMENT_SEL_1=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
+    SEGMENT_SEL_2=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
 
     if [ $ENABLED_COUNT -le 8 ]; then
         # All bands go to instance 1
-        for band_idx in "${ENABLED_BANDS[@]}"; do
-            SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$band_idx}1${SEGMENT_SEL_1:$((band_idx+1))}"
+        for seg_idx in "${ENABLED_BANDS[@]}"; do
+            SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
         done
         echo "Instance 1: All $ENABLED_COUNT enabled bands"
         echo "Instance 2: No bands (standby)"
@@ -107,15 +130,15 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         # First 8 bands to instance 1, remaining to instance 2
         for i in {0..7}; do
             if [ $i -lt $ENABLED_COUNT ]; then
-                band_idx=${ENABLED_BANDS[$i]}
-                SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$band_idx}1${SEGMENT_SEL_1:$((band_idx+1))}"
+                seg_idx=${ENABLED_BANDS[$i]}
+                SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
             fi
         done
 
         for i in {8..9}; do
             if [ $i -lt $ENABLED_COUNT ]; then
-                band_idx=${ENABLED_BANDS[$i]}
-                SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$band_idx}1${SEGMENT_SEL_2:$((band_idx+1))}"
+                seg_idx=${ENABLED_BANDS[$i]}
+                SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$seg_idx}1${SEGMENT_SEL_2:$((seg_idx+1))}"
             fi
         done
         echo "Instance 1: First 8 enabled bands"
@@ -135,14 +158,16 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     echo "  12m:  $BAND_12M"
     echo "  10m:  $BAND_10M"
     echo ""
-    echo "Instance 1 SegmentSel192: $SEGMENT_SEL_1"
-    echo "Instance 2 SegmentSel192: $SEGMENT_SEL_2"
+    echo "Instance 1 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_1"
+    echo "Instance 2 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_2"
 
     # Configure instance 1
     echo "Configuring SkimSrv instance 1..."
     sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000/g" "$PATH_INI_SKIMSRV" | \
-    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
-    sed "s/^SegmentSel192=.*/SegmentSel192=$SEGMENT_SEL_1/g" | \
+    sed "s/^CenterFreqs96=.*/CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500/g" | \
+    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
+    sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_1/g" | \
+    sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7300/g" | \
     sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" | \
     sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-0}/g" > "$PATH_INI_SKIMSRV.tmp"
@@ -178,12 +203,12 @@ AnnUser=
 MinQuality=0
 [Skimmer]
 CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
-CenterFreqs96=1845500,3545500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500
+CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500
 CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000
 SegmentSel48=00010000000000000
-SegmentSel96=001111111
+SegmentSel96=0000000000000
 SegmentSel192=0000000000
-CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000
+CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000
 ThreadCount=2
 DeviceName=01 UberSDR-IQ192
 Rate=2
@@ -202,8 +227,10 @@ EOF
     sed "s/^Name=.*/Name=$NAME_ESC/g" | \
     sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
     sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000/g" | \
-    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258000-5370000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
-    sed "s/^SegmentSel192=.*/SegmentSel192=$SEGMENT_SEL_2/g" | \
+    sed "s/^CenterFreqs96=.*/CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,50045500,50136500/g" | \
+    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14070000,18068000-18095000,21000000-21070000,24890000-24920000,28000000-28070000,50000000-50100000|g" | \
+    sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_2/g" | \
+    sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7301/g" | \
     sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" | \
     sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-0}/g" > "$PATH_INI_SKIMSRV_2.tmp"

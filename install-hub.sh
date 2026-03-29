@@ -286,7 +286,7 @@ except Exception:
         BAND_12M=true;  BAND_10M=true
         info "All bands enabled (auto-detected via API)"
     else
-        header "Band selection (192 kHz mode)"
+        header "Band selection"
         echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
         echo ""
 
@@ -329,10 +329,13 @@ FREQ_CALIBRATION=1
 # Callsign Validation (0 = minimal, 1 = normal, 2 = strict)
 MIN_QUALITY=0
 
+# Sample Rate (96 or 192 kHz — 96 recommended, uses half the CPU with no loss of CW coverage)
+SAMPLE_RATE=96
+
 # Service Control
 CWSKIMM_ENABLED=true
 
-# Band Selection for 192 kHz Mode
+# Band Selection
 BAND_160M=${BAND_160M}
 BAND_80M=${BAND_80M}
 BAND_60M=${BAND_60M}

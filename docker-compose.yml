@@ -23,10 +23,13 @@ services:
             # Callsign Validation
             - MIN_QUALITY=${MIN_QUALITY:-0}
 
+            # Sample Rate (96 or 192)
+            - SAMPLE_RATE=${SAMPLE_RATE:-192}
+
             # Service Control
             - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
 
-            # Band Selection for 192 kHz Mode
+            # Band Selection
             - BAND_160M=${BAND_160M:-true}
             - BAND_80M=${BAND_80M:-true}
             - BAND_60M=${BAND_60M:-true}
