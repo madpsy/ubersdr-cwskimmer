@@ -154,7 +154,7 @@ except Exception:
     echo ""
     if [ -n "${UBERSDR_HOST:-}" ] || [ -n "${UBERSDR_PORT:-}" ]; then
         # Env vars supplied — use them directly, no auto-probe needed
-        UBERSDR_HOST="${UBERSDR_HOST:-172.20.0.1}"
+        UBERSDR_HOST="${UBERSDR_HOST:-ubersdr}"
         UBERSDR_PORT="${UBERSDR_PORT:-8080}"
         info "Querying UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT}/api/description ..."
         if _try_api "$UBERSDR_HOST" "$UBERSDR_PORT"; then
@@ -167,9 +167,9 @@ except Exception:
         fi
     else
         # No env vars — try the default address silently first
-        info "Probing UberSDR API at http://172.20.0.1:8080/api/description ..."
-        if _try_api "172.20.0.1" "8080"; then
-            UBERSDR_HOST="172.20.0.1"
+        info "Probing UberSDR API at http://ubersdr:8080/api/description ..."
+        if _try_api "ubersdr" "8080"; then
+            UBERSDR_HOST="ubersdr"
             UBERSDR_PORT="8080"
             success "Auto-detected station details from UberSDR API"
             info "  Callsign : $API_CALLSIGN"
@@ -178,8 +178,8 @@ except Exception:
         else
             warn "Could not reach UberSDR API at default address — please enter connection details"
             echo ""
-            read -r -p "  UberSDR host   [172.20.0.1]: " INPUT_HOST
-            UBERSDR_HOST="${INPUT_HOST:-172.20.0.1}"
+            read -r -p "  UberSDR host   [ubersdr]: " INPUT_HOST
+            UBERSDR_HOST="${INPUT_HOST:-ubersdr}"
             read -r -p "  UberSDR port   [8080]: " INPUT_PORT
             UBERSDR_PORT="${INPUT_PORT:-8080}"
             # Try once more with the user-supplied values
@@ -399,7 +399,8 @@ else
 fi
 
 echo ""
-echo -e "  ${BOLD}Web interface:${RESET}  http://ubersdr.local:7373/vnc.html?autoconnect=true"
+echo -e "  ${BOLD}Web interface (direct):${RESET}  http://ubersdr.local:7373/vnc.html?autoconnect=true"
+echo -e "  ${BOLD}Web interface (via proxy):${RESET}  http://ubersdr.local:8080/addon/cwskimmer/vnc.html?autoconnect=true&path=addon/cwskimmer/websockify"
 echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
 echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/config  (symlink to .env)"
 echo ""

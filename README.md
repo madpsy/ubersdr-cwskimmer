@@ -40,9 +40,17 @@ bash ~/ubersdr/cwskimmer/install-hub.sh
 ### After installation
 
 Connect to the VNC web interface at:
+
+**Direct access** (port 7373 exposed on the host):
 ```
 http://ubersdr.local:7373/vnc.html?autoconnect=true
 ```
+
+**Via the ka9q_ubersdr addon proxy** (e.g. behind the UberSDR web interface):
+```
+http://ubersdr.local:8080/addon/cwskimmer/vnc.html?autoconnect=true&path=addon/cwskimmer/websockify
+```
+The `path` parameter tells noVNC to connect its WebSocket to the correct proxy sub-path instead of the bare `/websockify` endpoint.
 
 Configure ka9q_ubersdr to connect to the Aggregator on port 7550:
    - The Aggregator provides a telnet interface on port 7550
