@@ -408,7 +408,6 @@ else
 fi
 
 echo ""
-echo -e "  ${BOLD}Web interface (direct):${RESET}  http://ubersdr.local:7373/vnc.html?autoconnect=true"
 echo -e "  ${BOLD}Web interface (via proxy):${RESET}  http://ubersdr.local:8080/addon/cwskimmer/vnc.html?autoconnect=true&path=addon/cwskimmer/websockify"
 echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
 echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/config  (symlink to .env)"
