@@ -42,6 +42,9 @@ services:
             - BAND_10M=${BAND_10M:-true}
             - BAND_10M_BEACONS=${BAND_10M_BEACONS:-true}
         
+        ports:
+            - "7550:7550"
+
         # Join the ka9q_ubersdr network for direct container communication
         networks:
             - sdr-network
