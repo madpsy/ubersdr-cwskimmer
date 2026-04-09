@@ -53,11 +53,6 @@ services:
             start_period: 60s
             retries: 3
 
-        ports:
-            - "7373:7373"  # noVNC web interface
-            - "7300:7300"  # SkimSrv instance 1 telnet server
-            - "7301:7301"  # SkimSrv instance 2 telnet server
-            - "7550:7550"  # RBN Aggregator
         volumes:
             # Shared volume for restart trigger
             - restart-trigger:/var/run/restart-trigger

@@ -166,17 +166,26 @@ except Exception:
             warn "Could not reach UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT} — falling back to prompts"
         fi
     else
-        # No env vars — try the default address silently first
-        info "Probing UberSDR API at http://ubersdr:8080/api/description ..."
-        if _try_api "ubersdr" "8080"; then
-            UBERSDR_HOST="ubersdr"
-            UBERSDR_PORT="8080"
-            success "Auto-detected station details from UberSDR API"
-            info "  Callsign : $API_CALLSIGN"
-            [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
-            [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
-        else
-            warn "Could not reach UberSDR API at default address — please enter connection details"
+        # No env vars — probe host-reachable addresses first (installer runs on the host,
+        # not inside Docker, so the internal 'ubersdr' hostname won't resolve here).
+        # 172.20.0.1 is the Docker bridge gateway (host-side); ubersdr.local is the mDNS name.
+        # Either way, the runtime .env value is still 'ubersdr' (resolved inside the container).
+        _PROBE_DONE=false
+        for _probe_host in "172.20.0.1" "ubersdr.local"; do
+            info "Probing UberSDR API at http://${_probe_host}:8080/api/description ..."
+            if _try_api "$_probe_host" "8080"; then
+                UBERSDR_HOST="ubersdr"
+                UBERSDR_PORT="8080"
+                success "Auto-detected station details from UberSDR API (via ${_probe_host})"
+                info "  Callsign : $API_CALLSIGN"
+                [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
+                [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+                _PROBE_DONE=true
+                break
+            fi
+        done
+        if [ "$_PROBE_DONE" = false ]; then
+            warn "Could not reach UberSDR API at default addresses — please enter connection details"
             echo ""
             read -r -p "  UberSDR host   [ubersdr]: " INPUT_HOST
             UBERSDR_HOST="${INPUT_HOST:-ubersdr}"
