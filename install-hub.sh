@@ -133,7 +133,7 @@ except Exception:
     # Try the default address first (or env-supplied values if already set).
     # If the API call succeeds, host/port are confirmed and no prompts are needed.
     # If it fails, fall back to prompting for host/port.
-    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""
+    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""; API_RBN_SPOTS=""
     _try_api() {
         local host="$1" port="$2"
         local url="http://${host}:${port}/api/description"
@@ -145,6 +145,7 @@ except Exception:
                 API_CALLSIGN="$cs"
                 API_QTH=$(_parse_json    "$json" '.receiver.location')
                 API_SQUARE=$(_parse_json "$json" '.receiver.gps.maidenhead')
+                API_RBN_SPOTS=$(_parse_json "$json" '.receiver.cw_skimmer_rbn_spots')
                 return 0
             fi
         fi
@@ -159,9 +160,10 @@ except Exception:
         info "Querying UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT}/api/description ..."
         if _try_api "$UBERSDR_HOST" "$UBERSDR_PORT"; then
             success "Auto-detected station details from UberSDR API"
-            info "  Callsign : $API_CALLSIGN"
-            [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
-            [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+            info "  Callsign  : $API_CALLSIGN"
+            [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
+            [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
+            [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
         else
             warn "Could not reach UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT} — falling back to prompts"
         fi
@@ -177,9 +179,10 @@ except Exception:
                 UBERSDR_HOST="ubersdr"
                 UBERSDR_PORT="8080"
                 success "Auto-detected station details from UberSDR API (via ${_probe_host})"
-                info "  Callsign : $API_CALLSIGN"
-                [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
-                [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+                info "  Callsign  : $API_CALLSIGN"
+                [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
+                [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
+                [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
                 _PROBE_DONE=true
                 break
             fi
@@ -195,9 +198,10 @@ except Exception:
             info "Retrying UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT}/api/description ..."
             if _try_api "$UBERSDR_HOST" "$UBERSDR_PORT"; then
                 success "Auto-detected station details from UberSDR API"
-                info "  Callsign : $API_CALLSIGN"
-                [ -n "$API_QTH"    ] && info "  QTH      : $API_QTH"
-                [ -n "$API_SQUARE" ] && info "  Square   : $API_SQUARE"
+                info "  Callsign  : $API_CALLSIGN"
+                [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
+                [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
+                [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
             else
                 warn "Could not reach UberSDR API — station details must be entered manually"
             fi
@@ -268,6 +272,17 @@ except Exception:
     else
         read -r -p "  Grid square    [IO86ha]: " INPUT_SQUARE
         SQUARE="${INPUT_SQUARE:-IO86ha}"
+    fi
+
+    # ── RBN spot submission ────────────────────────────────────────────────────
+    # Priority: env var > API > default true
+    if [ -n "${RBN_SEND_SPOTS:-}" ]; then
+        info "Using RBN spot submission from environment: $RBN_SEND_SPOTS"
+    elif [ -n "$API_RBN_SPOTS" ]; then
+        RBN_SEND_SPOTS="$API_RBN_SPOTS"
+        info "Using RBN spot submission from API: $RBN_SEND_SPOTS"
+    else
+        RBN_SEND_SPOTS=true
     fi
 
     # ── Band selection ─────────────────────────────────────────────────────────
@@ -347,7 +362,7 @@ SAMPLE_RATE=96
 CWSKIMM_ENABLED=true
 
 # RBN Spot Submission (true = send spots to RBN, false = suppress)
-RBN_SEND_SPOTS=true
+RBN_SEND_SPOTS=${RBN_SEND_SPOTS}
 
 # Band Selection
 BAND_160M=${BAND_160M}
