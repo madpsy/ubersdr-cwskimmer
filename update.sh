@@ -9,12 +9,13 @@
 
 set -e
 
-# ── Self-protection: copy to temp file so self-update doesn't corrupt execution ─
+# ── Self-protection: re-exec from temp copy so self-overwrite doesn't corrupt execution ─
 if [ -z "$_UPDATE_SH_RUNNING" ]; then
     _TMPSCRIPT=$(mktemp /tmp/update-sh-XXXXXX.sh)
     cp "$0" "$_TMPSCRIPT"
     chmod +x "$_TMPSCRIPT"
     export _UPDATE_SH_RUNNING=1
+    export _UPDATE_SH_INSTALL_DIR="$(dirname "$(realpath "$0")")"
     exec bash "$_TMPSCRIPT" "$@"
 fi
 
@@ -26,7 +27,7 @@ for _arg in "$@"; do
         *) [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$_arg" ;;
     esac
 done
-INSTALL_DIR="${INSTALL_DIR:-$(dirname "$(realpath "$0")")}"
+INSTALL_DIR="${INSTALL_DIR:-${_UPDATE_SH_INSTALL_DIR:-$(dirname "$(realpath "$0")")}}"
 
 # ── Colours ────────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
@@ -124,7 +125,8 @@ _API_JSON=""
 for _probe in "$_UBERSDR_HOST" "172.20.0.1" "ubersdr.local"; do
     info "Querying UberSDR API at http://${_probe}:${_UBERSDR_PORT}/api/description ..."
     if _API_JSON=$(curl -fsSL --max-time 5 "http://${_probe}:${_UBERSDR_PORT}/api/description" 2>/dev/null); then
-        _cs=$(_parse_json "$_API_JSON" '.receiver.callsign')
+        _cs=$(_parse_json "$_API_JSON" '.cw_skimmer_callsign')
+        [ -z "$_cs" ] && _cs=$(_parse_json "$_API_JSON" '.receiver.callsign')
         if [ -n "$_cs" ]; then
             success "Reached UberSDR API (via ${_probe})"
             break
@@ -134,7 +136,8 @@ for _probe in "$_UBERSDR_HOST" "172.20.0.1" "ubersdr.local"; do
 done
 
 if [ -n "$_API_JSON" ]; then
-    _API_CALLSIGN=$(_parse_json  "$_API_JSON" '.receiver.callsign')
+    _API_CALLSIGN=$(_parse_json  "$_API_JSON" '.cw_skimmer_callsign')
+    [ -z "$_API_CALLSIGN" ] && _API_CALLSIGN=$(_parse_json "$_API_JSON" '.receiver.callsign')
     _API_QTH=$(_parse_json       "$_API_JSON" '.receiver.location')
     _API_SQUARE=$(_parse_json    "$_API_JSON" '.receiver.gps.maidenhead')
     _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.cw_skimmer_rbn_spots')

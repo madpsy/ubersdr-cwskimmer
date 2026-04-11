@@ -140,7 +140,8 @@ except Exception:
         local json
         if json=$(curl -fsSL --max-time 5 "$url" 2>/dev/null); then
             local cs
-            cs=$(_parse_json "$json" '.receiver.callsign')
+            cs=$(_parse_json "$json" '.cw_skimmer_callsign')
+            [ -z "$cs" ] && cs=$(_parse_json "$json" '.receiver.callsign')
             if [ -n "$cs" ]; then
                 API_CALLSIGN="$cs"
                 API_QTH=$(_parse_json    "$json" '.receiver.location')
