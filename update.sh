@@ -191,7 +191,7 @@ success "Helper scripts updated (install-hub.sh, update.sh, start.sh, stop.sh, r
 
 # ── Restart container ──────────────────────────────────────────────────────────
 header "Restarting container..."
-$COMPOSE_CMD up -d --pull always --remove-orphans
+$COMPOSE_CMD up -d --pull always --force-recreate --remove-orphans
 
 echo ""
 success "ubersdr-cwskimmer updated and restarted successfully!"
