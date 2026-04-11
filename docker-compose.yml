@@ -29,6 +29,9 @@ services:
             # Service Control
             - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
 
+            # RBN Spot Submission
+            - RBN_SEND_SPOTS=${RBN_SEND_SPOTS:-true}
+
             # Band Selection
             - BAND_160M=${BAND_160M:-true}
             - BAND_80M=${BAND_80M:-true}
