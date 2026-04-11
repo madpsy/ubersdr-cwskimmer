@@ -9,6 +9,15 @@
 
 set -e
 
+# ── Self-protection: copy to temp file so self-update doesn't corrupt execution ─
+if [ -z "$_UPDATE_SH_RUNNING" ]; then
+    _TMPSCRIPT=$(mktemp /tmp/update-sh-XXXXXX.sh)
+    cp "$0" "$_TMPSCRIPT"
+    chmod +x "$_TMPSCRIPT"
+    export _UPDATE_SH_RUNNING=1
+    exec bash "$_TMPSCRIPT" "$@"
+fi
+
 FORCE_UPDATE=false
 INSTALL_DIR=""
 for _arg in "$@"; do
