@@ -346,6 +346,9 @@ SAMPLE_RATE=96
 # Service Control
 CWSKIMM_ENABLED=true
 
+# RBN Spot Submission (true = send spots to RBN, false = suppress)
+RBN_SEND_SPOTS=true
+
 # Band Selection
 BAND_160M=${BAND_160M}
 BAND_80M=${BAND_80M}
