@@ -145,7 +145,7 @@ except Exception:
                 API_CALLSIGN="$cs"
                 API_QTH=$(_parse_json    "$json" '.receiver.location')
                 API_SQUARE=$(_parse_json "$json" '.receiver.gps.maidenhead')
-                API_RBN_SPOTS=$(_parse_json "$json" '.receiver.cw_skimmer_rbn_spots')
+                API_RBN_SPOTS=$(_parse_json "$json" '.cw_skimmer_rbn_spots')
                 return 0
             fi
         fi

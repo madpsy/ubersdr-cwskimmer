@@ -128,7 +128,7 @@ if [ -n "$_API_JSON" ]; then
     _API_CALLSIGN=$(_parse_json  "$_API_JSON" '.receiver.callsign')
     _API_QTH=$(_parse_json       "$_API_JSON" '.receiver.location')
     _API_SQUARE=$(_parse_json    "$_API_JSON" '.receiver.gps.maidenhead')
-    _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.receiver.cw_skimmer_rbn_spots')
+    _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.cw_skimmer_rbn_spots')
 
     # Helper: update a key in .env only if the API returned a non-empty value
     _update_env() {
