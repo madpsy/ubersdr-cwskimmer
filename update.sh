@@ -80,7 +80,84 @@ fi
 
 # ── Refresh .env.example (not .env) ───────────────────────────────────────────
 curl -fsSL "$REPO_RAW/.env.example" -o .env.example
-success "Updated .env.example (your .env was not changed)"
+success "Updated .env.example"
+
+# ── Sync known values from UberSDR API into .env ──────────────────────────────
+# Read current host/port from .env so we can reach the API
+_env_val() { grep -m1 "^$1=" .env 2>/dev/null | cut -d= -f2-; }
+_UBERSDR_HOST=$(_env_val UBERSDR_HOST)
+_UBERSDR_PORT=$(_env_val UBERSDR_PORT)
+_UBERSDR_HOST="${_UBERSDR_HOST:-ubersdr.local}"
+_UBERSDR_PORT="${_UBERSDR_PORT:-8080}"
+
+# JSON parser (jq preferred, python3 fallback)
+_parse_json() {
+    local json="$1" key="$2"
+    if command -v jq &>/dev/null; then
+        echo "$json" | jq -r "$key // empty" 2>/dev/null
+    else
+        python3 -c "
+import sys, json
+try:
+    d = json.loads(sys.stdin.read())
+    keys = '$key'.lstrip('.').split('.')
+    for k in keys:
+        d = d[k]
+    print(d if d is not None else '')
+except Exception:
+    print('')
+" <<< "$json" 2>/dev/null
+    fi
+}
+
+# Try host-reachable addresses (installer runs on host, not inside Docker)
+_API_JSON=""
+for _probe in "$_UBERSDR_HOST" "172.20.0.1" "ubersdr.local"; do
+    info "Querying UberSDR API at http://${_probe}:${_UBERSDR_PORT}/api/description ..."
+    if _API_JSON=$(curl -fsSL --max-time 5 "http://${_probe}:${_UBERSDR_PORT}/api/description" 2>/dev/null); then
+        _cs=$(_parse_json "$_API_JSON" '.receiver.callsign')
+        if [ -n "$_cs" ]; then
+            success "Reached UberSDR API (via ${_probe})"
+            break
+        fi
+    fi
+    _API_JSON=""
+done
+
+if [ -n "$_API_JSON" ]; then
+    _API_CALLSIGN=$(_parse_json  "$_API_JSON" '.receiver.callsign')
+    _API_QTH=$(_parse_json       "$_API_JSON" '.receiver.location')
+    _API_SQUARE=$(_parse_json    "$_API_JSON" '.receiver.gps.maidenhead')
+    _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.receiver.cw_skimmer_rbn_spots')
+
+    # Helper: update a key in .env only if the API returned a non-empty value
+    _update_env() {
+        local key="$1" val="$2"
+        if [ -n "$val" ]; then
+            if grep -q "^${key}=" .env; then
+                sed -i "s|^${key}=.*|${key}=${val}|" .env
+                info "  Updated ${key}=${val}"
+            else
+                echo "${key}=${val}" >> .env
+                info "  Added   ${key}=${val}"
+            fi
+        fi
+    }
+
+    header "Syncing station details from UberSDR API..."
+    [ -n "$_API_CALLSIGN"  ] && info "  Callsign  : $_API_CALLSIGN"
+    [ -n "$_API_QTH"       ] && info "  QTH       : $_API_QTH"
+    [ -n "$_API_SQUARE"    ] && info "  Square    : $_API_SQUARE"
+    [ -n "$_API_RBN_SPOTS" ] && info "  RBN spots : $_API_RBN_SPOTS"
+
+    _update_env "CALLSIGN"      "$_API_CALLSIGN"
+    _update_env "QTH"           "$_API_QTH"
+    _update_env "SQUARE"        "$_API_SQUARE"
+    _update_env "RBN_SEND_SPOTS" "$_API_RBN_SPOTS"
+    success ".env updated with latest API values"
+else
+    warn "Could not reach UberSDR API — .env values unchanged"
+fi
 
 # ── Ensure visible symlink: config → .env ─────────────────────────────────────
 if [ ! -e config ] && [ ! -L config ]; then
