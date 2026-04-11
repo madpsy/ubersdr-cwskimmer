@@ -2,11 +2,22 @@
 # update.sh — Pull the latest ubersdr-cwskimmer image and restart the container.
 # Run this from the directory containing docker-compose.yml and .env, or
 # pass the install directory as the first argument:
-#   bash update.sh [/path/to/install/dir]
+#   bash update.sh [/path/to/install/dir] [--force-update]
+#
+# Flags:
+#   --force-update   Also refresh docker-compose.yml from upstream (overwrites local edits)
 
 set -e
 
-INSTALL_DIR="${1:-$(dirname "$(realpath "$0")")}"
+FORCE_UPDATE=false
+INSTALL_DIR=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --force-update) FORCE_UPDATE=true ;;
+        *) [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$_arg" ;;
+    esac
+done
+INSTALL_DIR="${INSTALL_DIR:-$(dirname "$(realpath "$0")")}"
 
 # ── Colours ────────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
@@ -54,14 +65,18 @@ header "Pulling latest image from Docker Hub..."
 docker pull "$IMAGE"
 success "Image up to date: $IMAGE"
 
-# ── Refresh docker-compose.yml ─────────────────────────────────────────────────
-header "Refreshing docker-compose.yml..."
-cp docker-compose.yml docker-compose.yml.bak
-info "Backed up existing docker-compose.yml → docker-compose.yml.bak"
-curl -fsSL "$REPO_RAW/docker-compose.yml" \
-    | grep -v '^\s*build:' \
-    > docker-compose.yml
-success "docker-compose.yml updated"
+# ── Refresh docker-compose.yml (only if --force-update) ───────────────────────
+if [ "$FORCE_UPDATE" = true ]; then
+    header "Refreshing docker-compose.yml (--force-update)..."
+    cp docker-compose.yml docker-compose.yml.bak
+    info "Backed up existing docker-compose.yml → docker-compose.yml.bak"
+    curl -fsSL "$REPO_RAW/docker-compose.yml" \
+        | grep -v '^\s*build:' \
+        > docker-compose.yml
+    success "docker-compose.yml updated"
+else
+    info "Skipping docker-compose.yml refresh (pass --force-update to overwrite)"
+fi
 
 # ── Refresh .env.example (not .env) ───────────────────────────────────────────
 curl -fsSL "$REPO_RAW/.env.example" -o .env.example
