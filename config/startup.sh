@@ -250,6 +250,16 @@ echo "Configure RBN Aggregator with Callsign: $CALLSIGN using $PATH_INI_AGGREGAT
 #cat "$PATH_INI_AGGREGATOR"
 sed -i 's/CW0SKIM/'$CALLSIGN'/g' "$PATH_INI_AGGREGATOR"
 
+# Control whether spots are sent to RBN (RBN_SEND_SPOTS=true sends spots, false suppresses them)
+: ${RBN_SEND_SPOTS:=true}
+if [ "$RBN_SEND_SPOTS" = "true" ]; then
+    DONT_SEND_RBN=False
+else
+    DONT_SEND_RBN=True
+fi
+echo "RBN spot submission: RBN_SEND_SPOTS=$RBN_SEND_SPOTS -> Don't Send Spots to RBN=$DONT_SEND_RBN"
+sed -i "s/^Don't Send Spots to RBN=.*/Don't Send Spots to RBN=$DONT_SEND_RBN/g" "$PATH_INI_AGGREGATOR"
+
 # Configure Secondary Skimmer 1 to connect to SkimSrv instance 2 (port 7301)
 echo "Configuring Aggregator Secondary Skimmer 1 for SkimSrv instance 2..."
 sed -i "s/^Secondary Skimmer 1 Callsign=.*/Secondary Skimmer 1 Callsign=$CALLSIGN/g" "$PATH_INI_AGGREGATOR"
