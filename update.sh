@@ -15,8 +15,9 @@ if [ -z "$_UPDATE_SH_RUNNING" ]; then
     cp "$0" "$_TMPSCRIPT"
     chmod +x "$_TMPSCRIPT"
     export _UPDATE_SH_RUNNING=1
-    export _UPDATE_SH_INSTALL_DIR="$(dirname "$(realpath "$0")")"
-    exec bash "$_TMPSCRIPT" "$@"
+    _ORIG_INSTALL_DIR="$(dirname "$(realpath "$0")")"
+    export _UPDATE_SH_INSTALL_DIR="$_ORIG_INSTALL_DIR"
+    exec bash "$_TMPSCRIPT" "$_ORIG_INSTALL_DIR" "$@"
 fi
 
 FORCE_UPDATE=false
