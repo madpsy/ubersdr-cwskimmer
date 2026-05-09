@@ -8,8 +8,8 @@ services:
         
         environment:
             # Station Configuration
-            - CALLSIGN=${CALLSIGN:-MM3NDH}
-            - NAME=${NAME:-Nathan}
+            - CALLSIGN=${CALLSIGN:-N0CALL}
+            - NAME=${NAME:-John}
             - QTH=${QTH:-Dalgety Bay}
             - SQUARE=${SQUARE:-IO86ha}
 
@@ -62,6 +62,12 @@ services:
         volumes:
             # Shared volume for restart trigger
             - restart-trigger:/var/run/restart-trigger
+        logging:
+          driver: "fluentd"
+          options:
+            fluentd-address: "127.0.0.1:24224"
+            fluentd-async: "true"
+            tag: "cwskimmer"
 
 
         restart: unless-stopped
