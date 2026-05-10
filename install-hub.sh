@@ -37,6 +37,22 @@ header()  { echo -e "\n${BOLD}${CYAN}$*${RESET}"; }
 # ── Prerequisite checks ────────────────────────────────────────────────────────
 header "=== ubersdr-cwskimmer installer ==="
 
+# ── Architecture check ─────────────────────────────────────────────────────────
+ARCH=$(uname -m)
+if [ "$ARCH" != "x86_64" ]; then
+    error "Unsupported architecture: $ARCH"
+    echo ""
+    echo -e "  ${BOLD}The CW Skimmer addon requires an x86_64 (amd64) CPU.${RESET}"
+    echo ""
+    echo "  SkimServ, the core signal-processing component bundled in this addon,"
+    echo "  is a pre-compiled Windows/Wine binary built exclusively for the x86"
+    echo "  architecture. No ARM, RISC-V, or other architecture builds exist."
+    echo ""
+    echo "  Please run this installer on an x86_64 machine."
+    echo ""
+    exit 1
+fi
+
 if ! command -v docker &>/dev/null; then
     error "Docker is not installed. Please install Docker first:"
     echo "  https://docs.docker.com/engine/install/"
