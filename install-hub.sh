@@ -354,7 +354,7 @@ UBERSDR_PORT=${UBERSDR_PORT}
 FREQ_CALIBRATION=1
 
 # Callsign Validation (0 = minimal, 1 = normal, 2 = strict)
-MIN_QUALITY=0
+MIN_QUALITY=1
 
 # Sample Rate (96 or 192 kHz — 96 recommended, uses half the CPU with no loss of CW coverage)
 SAMPLE_RATE=96
