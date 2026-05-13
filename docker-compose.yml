@@ -71,6 +71,7 @@ services:
 
 
         restart: unless-stopped
+        cpu_shares: 768
 
 # Join the external sdr-network created by ka9q_ubersdr stack
 networks:
