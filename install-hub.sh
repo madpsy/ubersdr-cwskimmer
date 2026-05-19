@@ -411,10 +411,9 @@ fi
 # ── licenses/ directory ────────────────────────────────────────────────────────
 # Holds optional SkimSrv .reg license files (Armadillo registry blobs).
 # All *.reg files placed here are imported into Wine on every container start.
-if [ ! -d licenses ]; then
-    mkdir -p licenses
-    info "Created licenses/ directory (place SkimSrv .reg license files here)"
-fi
+mkdir -p licenses
+curl -fsSL "$REPO_RAW/licenses/README.md" -o licenses/README.md
+info "licenses/ directory ready (place SkimSrv .reg license files here)"
 
 # ── Network check ──────────────────────────────────────────────────────────────
 header "Checking Docker network..."
