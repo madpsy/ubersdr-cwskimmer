@@ -30,6 +30,7 @@ FROM wine AS installation
 
 ENV V_SKIMMER=2.1
 ENV V_SKIMMERSRV=1.6
+ENV V_RTTYSKIRMSRV=1.3
 ENV V_RBNAGGREGATOR=6.7
 
 # Copy installation files and extract them
@@ -40,6 +41,8 @@ WORKDIR /skimmer_${V_SKIMMER}
 RUN unzip /install/Skimmer_${V_SKIMMER}/CwSkimmer.zip && innoextract Setup.exe
 WORKDIR /skimmersrv_${V_SKIMMERSRV}
 RUN unzip /install/SkimmerSrv_${V_SKIMMERSRV}/SkimSrv.zip && innoextract Setup.exe
+WORKDIR /rttyskirmsrv_${V_RTTYSKIRMSRV}
+RUN unzip /install/RttySkimmer/RttySkimServ.zip && innoextract Setup.exe
 
 # Download and install RBN Aggregator v6.7
 WORKDIR /rbnaggregator_${V_RBNAGGREGATOR}
@@ -69,13 +72,15 @@ RUN chmod +x /bin/cwskimmer-entrypoint.sh
 # Configuration stuff
 ENV PATH_INI_SKIMSRV="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini"
 ENV PATH_INI_SKIMSRV_2="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini"
+ENV PATH_INI_RTTYSKIRMSRV="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/RttySkimServ/RttySkimServ.ini"
 ENV PATH_INI_AGGREGATOR="/rbnaggregator_${V_RBNAGGREGATOR}/Aggregator.ini"
 ENV PATH_INI_UBERSDR="/skimmersrv_${V_SKIMMERSRV}/app/UberSDRIntf.ini"
 ENV PATH_INI_UBERSDR_2="/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
 
-# Create directories for both SkimSrv instances
+# Create directories for both SkimSrv instances and RttySkimServ
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV})
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV_2})
+RUN mkdir -p $(dirname ${PATH_INI_RTTYSKIRMSRV})
 RUN mkdir -p /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference
 
 # Configure first SkimSrv instance
@@ -83,6 +88,10 @@ COPY ./config/rbn/Aggregator.ini ${PATH_INI_AGGREGATOR}
 COPY ./config/skimsrv/SkimSrv.ini ${PATH_INI_SKIMSRV}
 RUN cp /ubersdr_driver/* /skimmersrv_${V_SKIMMERSRV}/app/
 RUN rm -f /skimmersrv_${V_SKIMMERSRV}/app/Qs1rIntf.dll
+
+# Configure RttySkimServ instance
+RUN cp /ubersdr_driver/* /rttyskirmsrv_${V_RTTYSKIRMSRV}/app/
+RUN rm -f /rttyskirmsrv_${V_RTTYSKIRMSRV}/app/Qs1rIntf.dll
 
 # Copy patt3ch.lst to shared Reference directory (used by both SkimSrv instances)
 COPY ./install/patt3ch/patt3ch.lst /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Patt3Ch.lst

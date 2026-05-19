@@ -382,6 +382,15 @@ sed -i 's/6\.3/'$V_RBNAGGREGATOR'/g' /etc/supervisor/conf.d/supervisord.conf
 echo "Configure supervisor for skimmer ${V_SKIMMERSRV}"
 sed -i 's/1\.6/'$V_SKIMMERSRV'/g' /etc/supervisor/conf.d/supervisord.conf
 
+# Control RttySkimServ startup based on RTTYSKIRMSRV_ENABLED flag
+: ${RTTYSKIRMSRV_ENABLED:=false}
+if [ "$RTTYSKIRMSRV_ENABLED" = "true" ] || [ "$RTTYSKIRMSRV_ENABLED" = "1" ]; then
+    echo "RTTYSKIRMSRV_ENABLED is true, enabling RttySkimServ in supervisord..."
+    sed -i '/\[program:rttyskirmsrv\]/{n;s/autostart=false/autostart=true/}' /etc/supervisor/conf.d/supervisord.conf
+else
+    echo "RTTYSKIRMSRV_ENABLED is false, RttySkimServ will not start"
+fi
+
 echo "Start using logfiles $LOGFILE_UBERSDR and $LOGIFLE_AGGREGATOR"
 touch $LOGFILE_UBERSDR
 touch $LOGIFLE_AGGREGATOR
