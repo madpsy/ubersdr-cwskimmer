@@ -76,6 +76,7 @@ ENV PATH_INI_RTTYSKIRMSRV="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet
 ENV PATH_INI_AGGREGATOR="/rbnaggregator_${V_RBNAGGREGATOR}/Aggregator.ini"
 ENV PATH_INI_UBERSDR="/skimmersrv_${V_SKIMMERSRV}/app/UberSDRIntf.ini"
 ENV PATH_INI_UBERSDR_2="/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
+ENV PATH_INI_UBERSDR_RTTY="/rttyskirmsrv_${V_RTTYSKIRMSRV}/app/UberSDRIntf.ini"
 
 # Create directories for both SkimSrv instances, RttySkimServ, and shared Reference/UserData
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV})

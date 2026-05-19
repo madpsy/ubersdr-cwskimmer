@@ -376,6 +376,38 @@ else
     echo "Warning: UberSDRIntf-2.ini not found at $PATH_INI_UBERSDR_2"
 fi
 
+# Initialize UberSDRIntf.ini for RttySkimServ if it's empty
+if [ -f "$PATH_INI_UBERSDR_RTTY" ] && [ ! -s "$PATH_INI_UBERSDR_RTTY" ]; then
+    echo "Initializing empty UberSDRIntf.ini (RttySkimServ) with template..."
+    cat > "$PATH_INI_UBERSDR_RTTY" << 'EOF'
+; UberSDR Interface Configuration File
+[Server]
+Host=ubersdr
+Port=8080
+debug_rec=0
+
+[Calibration]
+FrequencyOffset=0
+swap_iq=1
+EOF
+fi
+
+# Configure UberSDR driver for RttySkimServ - always set from .env values
+echo "Configuring UberSDR driver for RttySkimServ at $PATH_INI_UBERSDR_RTTY"
+if [ -f "$PATH_INI_UBERSDR_RTTY" ]; then
+    echo "Setting UberSDR driver (RttySkimServ) with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
+    UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
+    UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
+
+    sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR_RTTY" | \
+    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR_RTTY.tmp"
+    cat "$PATH_INI_UBERSDR_RTTY.tmp" > "$PATH_INI_UBERSDR_RTTY"
+    rm -f "$PATH_INI_UBERSDR_RTTY.tmp"
+    echo "UberSDRIntf.ini (RttySkimServ) configured successfully"
+else
+    echo "Warning: UberSDRIntf.ini not found at $PATH_INI_UBERSDR_RTTY"
+fi
+
 # Configure RttySkimServ
 : ${RTTYSKIRMSRV_ENABLED:=false}
 : ${RTTYSKIRMSRV_PORT:=7400}
