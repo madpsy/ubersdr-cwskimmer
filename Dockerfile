@@ -77,11 +77,12 @@ ENV PATH_INI_AGGREGATOR="/rbnaggregator_${V_RBNAGGREGATOR}/Aggregator.ini"
 ENV PATH_INI_UBERSDR="/skimmersrv_${V_SKIMMERSRV}/app/UberSDRIntf.ini"
 ENV PATH_INI_UBERSDR_2="/skimmersrv_${V_SKIMMERSRV}-2/app/UberSDRIntf.ini"
 
-# Create directories for both SkimSrv instances and RttySkimServ
+# Create directories for both SkimSrv instances, RttySkimServ, and shared Reference/UserData
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV})
 RUN mkdir -p $(dirname ${PATH_INI_SKIMSRV_2})
 RUN mkdir -p $(dirname ${PATH_INI_RTTYSKIRMSRV})
 RUN mkdir -p /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference
+RUN mkdir -p /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/UserData
 
 # Configure first SkimSrv instance
 COPY ./config/rbn/Aggregator.ini ${PATH_INI_AGGREGATOR}
@@ -90,8 +91,18 @@ RUN cp /ubersdr_driver/* /skimmersrv_${V_SKIMMERSRV}/app/
 RUN rm -f /skimmersrv_${V_SKIMMERSRV}/app/Qs1rIntf.dll
 
 # Configure RttySkimServ instance
+COPY ./config/rttyskirmsrv/RttySkimServ.ini ${PATH_INI_RTTYSKIRMSRV}
 RUN cp /ubersdr_driver/* /rttyskirmsrv_${V_RTTYSKIRMSRV}/app/
 RUN rm -f /rttyskirmsrv_${V_RTTYSKIRMSRV}/app/Qs1rIntf.dll
+# Copy userappdata files extracted by innoextract to correct Wine AppData locations
+RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/Products/RttySkimServ/Contests.ini \
+       $(dirname ${PATH_INI_RTTYSKIRMSRV})/Contests.ini
+RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/Reference/MASTER.DTA \
+       /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/MASTER.DTA
+RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/Reference/Black.lst \
+       /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Black.lst
+RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/UserData/Watch.lst \
+       /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/UserData/Watch.lst
 
 # Copy patt3ch.lst to shared Reference directory (used by both SkimSrv instances)
 COPY ./install/patt3ch/patt3ch.lst /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Patt3Ch.lst

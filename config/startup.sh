@@ -376,6 +376,29 @@ else
     echo "Warning: UberSDRIntf-2.ini not found at $PATH_INI_UBERSDR_2"
 fi
 
+# Configure RttySkimServ
+: ${RTTYSKIRMSRV_ENABLED:=false}
+: ${RTTYSKIRMSRV_PORT:=7400}
+echo "Configuring RttySkimServ at $PATH_INI_RTTYSKIRMSRV (enabled=$RTTYSKIRMSRV_ENABLED)"
+if [ -f "$PATH_INI_RTTYSKIRMSRV" ]; then
+    CALLSIGN_ESC=$(printf '%s\n' "$CALLSIGN" | sed 's/[[\.*^$/]/\\&/g')
+    QTH_ESC=$(printf '%s\n' "$QTH" | sed 's/[[\.*^$/]/\\&/g')
+    NAME_ESC=$(printf '%s\n' "$NAME" | sed 's/[[\.*^$/]/\\&/g')
+    SQUARE_ESC=$(printf '%s\n' "$SQUARE" | sed 's/[[\.*^$/]/\\&/g')
+
+    sed "s/^Call=.*/Call=$CALLSIGN_ESC/g" "$PATH_INI_RTTYSKIRMSRV" | \
+    sed "s/^Name=.*/Name=$NAME_ESC/g" | \
+    sed "s/^QTH=.*/QTH=$QTH_ESC/g" | \
+    sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
+    sed "s/^Port=.*/Port=$RTTYSKIRMSRV_PORT/g" | \
+    sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" > "$PATH_INI_RTTYSKIRMSRV.tmp"
+    cat "$PATH_INI_RTTYSKIRMSRV.tmp" > "$PATH_INI_RTTYSKIRMSRV"
+    rm -f "$PATH_INI_RTTYSKIRMSRV.tmp"
+    echo "RttySkimServ.ini configured successfully"
+else
+    echo "Warning: RttySkimServ.ini not found at $PATH_INI_RTTYSKIRMSRV"
+fi
+
 echo "Configure supervisor for aggregator ${V_RBNAGGREGATOR}"
 sed -i 's/6\.3/'$V_RBNAGGREGATOR'/g' /etc/supervisor/conf.d/supervisord.conf
 
@@ -383,7 +406,6 @@ echo "Configure supervisor for skimmer ${V_SKIMMERSRV}"
 sed -i 's/1\.6/'$V_SKIMMERSRV'/g' /etc/supervisor/conf.d/supervisord.conf
 
 # Control RttySkimServ startup based on RTTYSKIRMSRV_ENABLED flag
-: ${RTTYSKIRMSRV_ENABLED:=false}
 if [ "$RTTYSKIRMSRV_ENABLED" = "true" ] || [ "$RTTYSKIRMSRV_ENABLED" = "1" ]; then
     echo "RTTYSKIRMSRV_ENABLED is true, enabling RttySkimServ in supervisord..."
     sed -i '/\[program:rttyskirmsrv\]/{n;s/autostart=false/autostart=true/}' /etc/supervisor/conf.d/supervisord.conf
