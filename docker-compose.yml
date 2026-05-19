@@ -29,6 +29,10 @@ services:
             # Service Control
             - CWSKIMM_ENABLED=${CWSKIMM_ENABLED:-true}
 
+            # RTTY Skimmer Server
+            - RTTYSKIRMSRV_ENABLED=${RTTYSKIRMSRV_ENABLED:-false}
+            - RTTYSKIRMSRV_PORT=${RTTYSKIRMSRV_PORT:-7400}
+
             # RBN Spot Submission
             - RBN_SEND_SPOTS=${RBN_SEND_SPOTS:-true}
 

@@ -303,6 +303,19 @@ sed -i 's/^Secondary Skimmer 1 Port=.*/Secondary Skimmer 1 Port=7301/g' "$PATH_I
 sed -i 's/^Secondary Skimmer 1 Auto Start=.*/Secondary Skimmer 1 Auto Start=True/g' "$PATH_INI_AGGREGATOR"
 echo "Aggregator configured to connect to both SkimSrv instances (ports 7300 and 7301)"
 
+# Configure Secondary Skimmer 2 for RttySkimServ (only when enabled)
+: ${RTTYSKIRMSRV_ENABLED:=false}
+: ${RTTYSKIRMSRV_PORT:=7400}
+if [ "$RTTYSKIRMSRV_ENABLED" = "true" ] || [ "$RTTYSKIRMSRV_ENABLED" = "1" ]; then
+    echo "Configuring Aggregator Secondary Skimmer 2 for RttySkimServ (port $RTTYSKIRMSRV_PORT)..."
+    sed -i "s/^Secondary Skimmer 2 Callsign=.*/Secondary Skimmer 2 Callsign=$CALLSIGN/g" "$PATH_INI_AGGREGATOR"
+    sed -i "s/^Secondary Skimmer 2 Port=.*/Secondary Skimmer 2 Port=$RTTYSKIRMSRV_PORT/g" "$PATH_INI_AGGREGATOR"
+    sed -i 's/^Secondary Skimmer 2 Auto Start=.*/Secondary Skimmer 2 Auto Start=True/g' "$PATH_INI_AGGREGATOR"
+    echo "Aggregator configured to connect to RttySkimServ on port $RTTYSKIRMSRV_PORT"
+else
+    echo "RTTYSKIRMSRV_ENABLED is false, skipping Secondary Skimmer 2 configuration"
+fi
+
 #cat "$PATH_INI_AGGREGATOR"
 # FIXME: only debug stuff
 cp "$PATH_INI_AGGREGATOR" /root/
