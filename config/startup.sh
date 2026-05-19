@@ -19,6 +19,27 @@ else
     echo "Imported $REG_IMPORTED .reg file(s) into Wine registry"
 fi
 
+# Background watcher: export license to licenses/ once it appears in the Wine registry.
+# This handles the case where the user enters their serial via the SkimSrv GUI inside
+# the container. The watcher polls the Wine system.reg file every 30 seconds, exports
+# the Armadillo license blobs when found, then exits (self-terminating).
+(
+    EXPORT_PATH="/tmp/skimsrv_licenses/skimsrv_license_exported.reg"
+    WINE_SYSREG="/root/.wine/system.reg"
+    echo "License watcher started (will export to licenses/ when registration is detected)"
+    while true; do
+        sleep 30
+        # Check Wine's system.reg directly — no Wine process overhead
+        if grep -q "0B3C3B61550D45B7A\|K7C0DB872A3F777C0" "$WINE_SYSREG" 2>/dev/null; then
+            echo "License detected in Wine registry — exporting to $EXPORT_PATH"
+            DISPLAY=:0 wine reg export "HKLM\\SOFTWARE\\WOW6432Node\\Licenses" "$EXPORT_PATH" /y 2>/dev/null \
+                && echo "License exported successfully to licenses/skimsrv_license_exported.reg" \
+                || echo "License export failed — try manually: wine reg export HKLM\\SOFTWARE\\WOW6432Node\\Licenses /path/to/file.reg"
+            exit 0
+        fi
+    done
+) &
+
 # Initialize SkimSrv.ini if it's empty (bind mount created empty file on first run)
 if [ -f "$PATH_INI_SKIMSRV" ] && [ ! -s "$PATH_INI_SKIMSRV" ]; then
     echo "Initializing empty SkimSrv.ini with template..."

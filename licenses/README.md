@@ -7,7 +7,19 @@ All `*.reg` files here are automatically imported into the Wine registry on ever
 
 ---
 
-## How to extract your license from a licensed Windows machine
+## Method A — Register via the SkimSrv GUI inside the container
+
+If you have your serial number but no Windows machine to export from:
+
+1. Connect to the container via noVNC (see the web interface URL in the install output)
+2. Launch SkimSrv and enter your serial number when prompted
+3. A background watcher inside the container will detect the registration and automatically export the license blobs to this `licenses/` directory as `skimsrv_license_exported.reg`
+4. Check the container logs to confirm: `docker logs cwskimmer 2>&1 | grep -i "license"`
+5. On the next restart the exported file is imported automatically — registration persists
+
+---
+
+## Method B — Export from a licensed Windows machine
 
 SkimSrv uses the **Armadillo** DRM system, which stores its license as binary blobs in the Windows registry under `HKLM\SOFTWARE\WOW6432Node\Licenses`.
 

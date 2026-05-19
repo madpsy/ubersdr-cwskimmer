@@ -64,7 +64,8 @@ services:
             - restart-trigger:/var/run/restart-trigger
             # SkimSrv license files (Armadillo registry blobs exported from a licensed Windows install)
             # Place any .reg files in the licenses/ directory and they will all be imported into Wine on startup
-            - ./licenses:/tmp/skimsrv_licenses:ro
+            # rw so the container can export a license back to this directory after GUI registration
+            - ./licenses:/tmp/skimsrv_licenses:rw
         logging:
           driver: "fluentd"
           options:

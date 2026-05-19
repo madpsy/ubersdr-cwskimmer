@@ -411,7 +411,10 @@ fi
 # ── licenses/ directory ────────────────────────────────────────────────────────
 # Holds optional SkimSrv .reg license files (Armadillo registry blobs).
 # All *.reg files placed here are imported into Wine on every container start.
+# The container also writes back to this directory when a license is registered
+# via the GUI, so it must be writable by the container's root user.
 mkdir -p licenses
+chmod 777 licenses
 curl -fsSL "$REPO_RAW/licenses/README.md" -o licenses/README.md
 info "licenses/ directory ready (place SkimSrv .reg license files here)"
 
