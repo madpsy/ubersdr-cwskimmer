@@ -378,6 +378,10 @@ SAMPLE_RATE=96
 # Service Control
 CWSKIMM_ENABLED=true
 
+# RTTY Skimmer Server (disabled by default; set to true to enable)
+RTTYSKIRMSRV_ENABLED=false
+RTTYSKIRMSRV_PORT=7400
+
 # RBN Spot Submission (true = send spots to RBN, false = suppress)
 RBN_SEND_SPOTS=${RBN_SEND_SPOTS}
 
