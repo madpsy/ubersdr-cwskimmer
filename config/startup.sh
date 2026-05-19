@@ -440,7 +440,7 @@ sed -i 's/1\.6/'$V_SKIMMERSRV'/g' /etc/supervisor/conf.d/supervisord.conf
 # Control RttySkimServ startup based on RTTYSKIRMSRV_ENABLED flag
 if [ "$RTTYSKIRMSRV_ENABLED" = "true" ] || [ "$RTTYSKIRMSRV_ENABLED" = "1" ]; then
     echo "RTTYSKIRMSRV_ENABLED is true, enabling RttySkimServ in supervisord..."
-    sed -i '/\[program:rttyskirmsrv\]/{n;s/autostart=false/autostart=true/}' /etc/supervisor/conf.d/supervisord.conf
+    sed -i '/\[program:rttyskirmsrv\]/,/^\[/s/autostart=false/autostart=true/' /etc/supervisor/conf.d/supervisord.conf
 else
     echo "RTTYSKIRMSRV_ENABLED is false, RttySkimServ will not start"
 fi
