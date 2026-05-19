@@ -408,6 +408,14 @@ else
     warn "'config' already exists and is not a symlink to .env — skipping symlink creation"
 fi
 
+# ── licenses/ directory ────────────────────────────────────────────────────────
+# Holds optional SkimSrv .reg license files (Armadillo registry blobs).
+# All *.reg files placed here are imported into Wine on every container start.
+if [ ! -d licenses ]; then
+    mkdir -p licenses
+    info "Created licenses/ directory (place SkimSrv .reg license files here)"
+fi
+
 # ── Network check ──────────────────────────────────────────────────────────────
 header "Checking Docker network..."
 if ! docker network ls --format '{{.Name}}' | grep -q '^ubersdr_sdr-network$'; then
@@ -447,6 +455,7 @@ echo -e "  ${BOLD}Web interface (via proxy):${RESET}  http://ubersdr.local:8080/
 echo -e "  ${BOLD}RBN Aggregator telnet:${RESET}   telnet ubersdr.local 7550"
 echo -e "  ${BOLD}Install dir:${RESET}    $INSTALL_DIR"
 echo -e "  ${BOLD}Config file:${RESET}    $INSTALL_DIR/config  (symlink to .env)"
+echo -e "  ${BOLD}Licenses dir:${RESET}   $INSTALL_DIR/licenses/  (place SkimSrv .reg license files here)"
 echo ""
 echo -e "  Start:          ${CYAN}bash $INSTALL_DIR/start.sh${RESET}"
 echo -e "  Stop:           ${CYAN}bash $INSTALL_DIR/stop.sh${RESET}"

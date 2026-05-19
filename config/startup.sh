@@ -4,6 +4,21 @@
 # Ensure restart trigger directory exists
 mkdir -p /var/run/restart-trigger
 
+# Import any .reg files from the skimsrv config directory into the Wine registry
+REG_IMPORTED=0
+for reg_file in /tmp/skimsrv_licenses/*.reg; do
+    if [ -f "$reg_file" ]; then
+        echo "Importing Wine registry file: $reg_file"
+        DISPLAY=:0 wine regedit "$reg_file"
+        REG_IMPORTED=$((REG_IMPORTED + 1))
+    fi
+done
+if [ "$REG_IMPORTED" -eq 0 ]; then
+    echo "No .reg files found in /tmp/skimsrv_licenses/ - SkimSrv will run unregistered"
+else
+    echo "Imported $REG_IMPORTED .reg file(s) into Wine registry"
+fi
+
 # Initialize SkimSrv.ini if it's empty (bind mount created empty file on first run)
 if [ -f "$PATH_INI_SKIMSRV" ] && [ ! -s "$PATH_INI_SKIMSRV" ]; then
     echo "Initializing empty SkimSrv.ini with template..."

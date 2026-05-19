@@ -3,3 +3,6 @@ data/
 
 # Environment configuration
 .env
+
+# SkimSrv license files (Armadillo registry blobs - user-supplied, do not commit)
+licenses/*.reg
