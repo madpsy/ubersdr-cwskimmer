@@ -33,6 +33,22 @@ services:
             - RTTYSKIRMSRV_ENABLED=${RTTYSKIRMSRV_ENABLED:-false}
             - RTTYSKIRMSRV_PORT=${RTTYSKIRMSRV_PORT:-7400}
 
+            # RTTY Band Selection
+            - RTTY_BAND_160M=${RTTY_BAND_160M:-false}
+            - RTTY_BAND_80M=${RTTY_BAND_80M:-false}
+            - RTTY_BAND_60M=${RTTY_BAND_60M:-false}
+            - RTTY_BAND_40M=${RTTY_BAND_40M:-true}
+            - RTTY_BAND_30M=${RTTY_BAND_30M:-false}
+            - RTTY_BAND_20M=${RTTY_BAND_20M:-true}
+            - RTTY_BAND_17M=${RTTY_BAND_17M:-false}
+            - RTTY_BAND_15M=${RTTY_BAND_15M:-false}
+            - RTTY_BAND_12M=${RTTY_BAND_12M:-false}
+            - RTTY_BAND_10M=${RTTY_BAND_10M:-false}
+            - RTTY_BAND_10M_HIGH=${RTTY_BAND_10M_HIGH:-false}
+
+            # RTTY Validation Level
+            - RTTY_VALIDATION_LEVEL=${RTTY_VALIDATION_LEVEL:-2}
+
             # RBN Spot Submission
             - RBN_SEND_SPOTS=${RBN_SEND_SPOTS:-true}
 

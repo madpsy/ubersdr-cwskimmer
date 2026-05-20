@@ -431,12 +431,46 @@ if [ -f "$PATH_INI_RTTYSKIRMSRV" ]; then
     NAME_ESC=$(printf '%s\n' "$NAME" | sed 's/[[\.*^$/]/\\&/g')
     SQUARE_ESC=$(printf '%s\n' "$SQUARE" | sed 's/[[\.*^$/]/\\&/g')
 
+    # Build RTTY SegmentSel192 from RTTY_BAND_* environment variables
+    # CenterFreqs192 index mapping: 0=160m 1=80m 2=60m 3=40m 4=30m 5=20m 6=17m 7=15m 8=12m 9=10m 10=10m(high)
+    : ${RTTY_BAND_160M:=false}
+    : ${RTTY_BAND_80M:=false}
+    : ${RTTY_BAND_60M:=false}
+    : ${RTTY_BAND_40M:=true}
+    : ${RTTY_BAND_30M:=false}
+    : ${RTTY_BAND_20M:=true}
+    : ${RTTY_BAND_17M:=false}
+    : ${RTTY_BAND_15M:=false}
+    : ${RTTY_BAND_12M:=false}
+    : ${RTTY_BAND_10M:=false}
+    : ${RTTY_BAND_10M_HIGH:=false}
+
+    RTTY_BAND_VARS=("$RTTY_BAND_160M" "$RTTY_BAND_80M" "$RTTY_BAND_60M" "$RTTY_BAND_40M" "$RTTY_BAND_30M" "$RTTY_BAND_20M" "$RTTY_BAND_17M" "$RTTY_BAND_15M" "$RTTY_BAND_12M" "$RTTY_BAND_10M" "$RTTY_BAND_10M_HIGH")
+    RTTY_BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_HIGH")
+
+    RTTY_SEGMENT_SEL=$(printf '0%.0s' $(seq 1 11))
+    for i in {0..10}; do
+        if [ "${RTTY_BAND_VARS[$i]}" = "true" ]; then
+            RTTY_SEGMENT_SEL="${RTTY_SEGMENT_SEL:0:$i}1${RTTY_SEGMENT_SEL:$((i+1))}"
+        fi
+    done
+
+    echo ""
+    echo "RTTY band configuration:"
+    for i in {0..10}; do
+        echo "  ${RTTY_BAND_NAMES[$i]}: ${RTTY_BAND_VARS[$i]}"
+    done
+    echo "RTTY SegmentSel192: $RTTY_SEGMENT_SEL"
+    echo ""
+
     sed "s/^Call=.*/Call=$CALLSIGN_ESC/g" "$PATH_INI_RTTYSKIRMSRV" | \
     sed "s/^Name=.*/Name=$NAME_ESC/g" | \
     sed "s/^QTH=.*/QTH=$QTH_ESC/g" | \
     sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
     sed "s/^Port=.*/Port=$RTTYSKIRMSRV_PORT/g" | \
-    sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" > "$PATH_INI_RTTYSKIRMSRV.tmp"
+    sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" | \
+    sed "s/^SegmentSel192=.*/SegmentSel192=$RTTY_SEGMENT_SEL/g" | \
+    sed "s/^ValidationLevel=.*/ValidationLevel=${RTTY_VALIDATION_LEVEL:-2}/g" > "$PATH_INI_RTTYSKIRMSRV.tmp"
     cat "$PATH_INI_RTTYSKIRMSRV.tmp" > "$PATH_INI_RTTYSKIRMSRV"
     rm -f "$PATH_INI_RTTYSKIRMSRV.tmp"
     echo "RttySkimServ.ini configured successfully"
