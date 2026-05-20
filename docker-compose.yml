@@ -21,7 +21,7 @@ services:
             - FREQ_CALIBRATION=${FREQ_CALIBRATION:-1}
 
             # Callsign Validation
-            - MIN_QUALITY=${MIN_QUALITY:-0}
+            - MIN_QUALITY=${MIN_QUALITY:-1}
 
             # Sample Rate (96 or 192)
             - SAMPLE_RATE=${SAMPLE_RATE:-192}

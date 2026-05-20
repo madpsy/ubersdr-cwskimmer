@@ -60,7 +60,7 @@ CqOnly=0
 AllowAnn=1
 AnnUserOnly=0
 AnnUser=
-MinQuality=0
+MinQuality=1
 [Skimmer]
 CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
 CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28250000,50045500,50136500
@@ -210,7 +210,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7300/g" | \
     sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" | \
-    sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-0}/g" > "$PATH_INI_SKIMSRV.tmp"
+    sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-1}/g" > "$PATH_INI_SKIMSRV.tmp"
     cat "$PATH_INI_SKIMSRV.tmp" > "$PATH_INI_SKIMSRV"
     rm -f "$PATH_INI_SKIMSRV.tmp"
 
@@ -240,7 +240,7 @@ CqOnly=0
 AllowAnn=1
 AnnUserOnly=0
 AnnUser=
-MinQuality=0
+MinQuality=1
 [Skimmer]
 CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
 CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28250000,50045500,50136500
@@ -273,7 +273,7 @@ EOF
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7301/g" | \
     sed "s/^FreqCalibration=.*/FreqCalibration=$FREQ_CALIBRATION/g" | \
-    sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-0}/g" > "$PATH_INI_SKIMSRV_2.tmp"
+    sed "s/^MinQuality=.*/MinQuality=${MIN_QUALITY:-1}/g" > "$PATH_INI_SKIMSRV_2.tmp"
     cat "$PATH_INI_SKIMSRV_2.tmp" > "$PATH_INI_SKIMSRV_2"
     rm -f "$PATH_INI_SKIMSRV_2.tmp"
 
