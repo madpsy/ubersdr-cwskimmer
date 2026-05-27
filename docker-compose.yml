@@ -49,6 +49,10 @@ services:
             # RTTY Validation Level
             - RTTY_VALIDATION_LEVEL=${RTTY_VALIDATION_LEVEL:-2}
 
+            # License Export (exports Armadillo license blobs back to ./licenses/ after GUI registration)
+            # Disable this if you don't want the trial state re-imported on every restart
+            - LICENSE_EXPORT_ENABLED=${LICENSE_EXPORT_ENABLED:-false}
+
             # RBN Spot Submission
             - RBN_SEND_SPOTS=${RBN_SEND_SPOTS:-true}
 
