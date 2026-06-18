@@ -102,8 +102,8 @@ RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/Reference/MASTER.DTA \
        /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/MASTER.DTA
 RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/Reference/Black.lst \
        /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Black.lst
-RUN cp /rttyskirmsrv_${V_RTTYSKIRMSRV}/userappdata/Afreet/UserData/Watch.lst \
-       /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/UserData/Watch.lst
+COPY ./config/skimsrv/Watch.lst \
+     /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/UserData/Watch.lst
 
 # Copy patt3ch.lst to shared Reference directory (used by both SkimSrv instances)
 COPY ./install/patt3ch/patt3ch.lst /root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Patt3Ch.lst
