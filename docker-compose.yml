@@ -68,6 +68,8 @@ services:
             - BAND_12M=${BAND_12M:-true}
             - BAND_10M=${BAND_10M:-true}
             - BAND_10M_BEACONS=${BAND_10M_BEACONS:-true}
+            - BAND_20M_BEACONS=${BAND_20M_BEACONS:-true}
+            - BAND_15M_BEACONS=${BAND_15M_BEACONS:-true}
         
         ports:
             - "7550:7550"
