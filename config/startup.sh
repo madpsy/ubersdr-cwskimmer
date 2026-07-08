@@ -517,5 +517,31 @@ touch $LOGIFLE_AGGREGATOR
 
 tail -f $LOGFILE_UBERSDR $LOGIFLE_AGGREGATOR &
 
+# Fetch latest patt3ch.lst from RBN server
+PATT3CH_URL="https://data.reversebeacon.net/downloads/patt3ch/patt3ch.lst"
+PATT3CH_DEST="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Reference/Patt3Ch.lst"
+PATT3CH_MAX_ATTEMPTS=3
+PATT3CH_RETRY_DELAY=2
+
+echo "Fetching latest patt3ch.lst from $PATT3CH_URL ..."
+PATT3CH_SUCCESS=false
+for attempt in $(seq 1 $PATT3CH_MAX_ATTEMPTS); do
+    if wget -q -O "${PATT3CH_DEST}.tmp" "$PATT3CH_URL"; then
+        mv "${PATT3CH_DEST}.tmp" "$PATT3CH_DEST"
+        echo "patt3ch.lst updated successfully (attempt $attempt)"
+        PATT3CH_SUCCESS=true
+        break
+    else
+        echo "patt3ch.lst fetch failed (attempt $attempt/$PATT3CH_MAX_ATTEMPTS)"
+        rm -f "${PATT3CH_DEST}.tmp"
+        if [ $attempt -lt $PATT3CH_MAX_ATTEMPTS ]; then
+            sleep $PATT3CH_RETRY_DELAY
+        fi
+    fi
+done
+
+if [ "$PATT3CH_SUCCESS" = "false" ]; then
+    echo "Warning: Could not fetch patt3ch.lst after $PATT3CH_MAX_ATTEMPTS attempts — using bundled file"
+fi
 
 exec "$@"
