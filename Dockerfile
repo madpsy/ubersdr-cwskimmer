@@ -69,6 +69,12 @@ COPY ./config/startup_sound.sh /bin
 COPY ./config/cwskimmer-entrypoint.sh /bin
 RUN chmod +x /bin/cwskimmer-entrypoint.sh
 
+# Aggregator launch wrapper (relaunches Wine + resizes the window on every
+# start/restart, including after a crash - see config/supervisord.conf)
+RUN mkdir -p /rbn
+COPY ./config/rbn/run-aggregator.sh /rbn/run-aggregator.sh
+RUN chmod +x /rbn/run-aggregator.sh
+
 # Configuration stuff
 ENV PATH_INI_SKIMSRV="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv/SkimSrv.ini"
 ENV PATH_INI_SKIMSRV_2="/root/.wine/drive_c/users/root/AppData/Roaming/Afreet/Products/SkimSrv-2/SkimSrv-2.ini"

@@ -148,6 +148,15 @@ A Docker container that runs CW Skimmer Server with RBN Aggregator and UberSDR d
 | `UBERSDR_HOST` | `ka9q_ubersdr` | Hostname or IP of the ka9q_ubersdr server |
 | `UBERSDR_PORT` | `8080` | Port number for ka9q_ubersdr connection |
 
+### RBN Aggregator Window Size
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGGREGATOR_WIDTH` | `1144` | Aggregator window width (pixels) |
+| `AGGREGATOR_HEIGHT` | `722` | Aggregator window height (pixels) |
+
+The Aggregator window is resized to `AGGREGATOR_WIDTH`x`AGGREGATOR_HEIGHT` once, immediately after it appears. This happens on initial container startup **and** any time the Aggregator process itself is restarted by supervisor (e.g. after a crash), so the window is always correctly sized regardless of how many times Aggregator has restarted. Because the resize only happens right after launch (not on a repeating timer), you're free to manually resize the window afterwards via the VNC session — it will stay however you leave it until the next actual Aggregator restart.
+
 ### Band Selection (192 kHz Mode)
 
 Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `false`:

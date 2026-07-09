@@ -56,6 +56,10 @@ services:
             # RBN Spot Submission
             - RBN_SEND_SPOTS=${RBN_SEND_SPOTS:-true}
 
+            # RBN Aggregator Window Size (applied each time the window (re)appears, e.g. after a crash)
+            - AGGREGATOR_WIDTH=${AGGREGATOR_WIDTH:-1144}
+            - AGGREGATOR_HEIGHT=${AGGREGATOR_HEIGHT:-722}
+
             # Band Selection
             - BAND_160M=${BAND_160M:-true}
             - BAND_80M=${BAND_80M:-true}
