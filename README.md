@@ -173,8 +173,29 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 | `BAND_15M` | `true` | 15.091 MHz | 15m | 15 meter band |
 | `BAND_12M` | `true` | 24.981 MHz | 12m | 12 meter band (WARC) |
 | `BAND_10M` | `true` | 28.091 MHz | 10m | 10 meter band |
+| `BAND_10M_BEACONS` | `true` | 28.225 MHz | 10m | Beacon segment (28.200-28.300 MHz) |
+| `BAND_6M` | `false` | 50.091 MHz | 6m | CW allocation, 50.000-50.100 MHz — requires a receiver that tunes above 50 MHz |
+| `BAND_6M_BEACONS` | `false` | 50.450 MHz | 6m | IARU **Region 1** beacon band, 50.400-50.500 MHz |
 
 **Note**: The center frequencies and CW segments are automatically configured. These settings only control which bands are enabled/disabled.
+
+#### 6m and the receiver's tuning range
+
+Many UberSDR instances stop at 30 MHz, so 6m is opt-in and defaults to `false`.
+
+On every container start the skimmer reads `tuning_range.max_frequency` from the UberSDR API (`/api/description`) and disables any band whose IQ window falls outside what the receiver can tune — the test is *centre frequency ± sample rate / 2* against the reported `min_frequency`/`max_frequency`. A 6m band left enabled on a 30 MHz instance is therefore switched off with a log line rather than tying up one of the eight SkimSrv slots with a segment that can never produce a spot:
+
+```
+UberSDR tuning range: 10000 - 30000000 Hz
+  6M: disabled — needs 49995000-50187000 Hz, receiver covers 10000-30000000 Hz
+1 band(s) disabled as out of range for this receiver
+```
+
+If the API cannot be reached the check is skipped and your configured bands are left as-is, with a warning in the log.
+
+`install-hub.sh` uses the same field to pick the initial default, enabling `BAND_6M` on a fresh install when the receiver reaches 50 MHz. `update.sh` seeds the two keys into an existing `.env` if they are missing, but never overrides a choice you have already made.
+
+`BAND_6M_BEACONS` covers the IARU Region 1 beacon band at 50.400-50.500 MHz and stays `false` by default — outside Region 1 (Europe/Africa/Middle East) it has nothing to hear. Region 2's beacon sub-band at 50.060-50.080 MHz sits inside the CW allocation and is already covered by `BAND_6M`.
 
 ### Internal Configuration Paths
 
@@ -513,6 +534,9 @@ BAND_17M=true
 BAND_15M=true
 BAND_12M=true
 BAND_10M=true
+BAND_10M_BEACONS=true
+BAND_6M=false           # 50 MHz — needs a receiver that tunes above 30 MHz
+BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 ```
 
 ### Band Details
@@ -529,18 +553,25 @@ BAND_10M=true
 | 15m | 21.091 MHz | 21.000-21.070 MHz | DX when open |
 | 12m | 24.981 MHz | 24.890-24.920 MHz | WARC band |
 | 10m | 28.091 MHz | 28.000-28.070 MHz | DX during solar max |
+| 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
+| 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
+| 6m beacons | 50.450 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
 
 ### Technical Details
 
-The `SegmentSel192` parameter is a 10-character binary string where each position corresponds to a band:
+The `SegmentSel192` parameter is a 13-character binary string where each position corresponds to an entry in `CenterFreqs192`:
 
 ```
-Position: 0123456789
-Bands:    160 80 60 40 30 20 17 15 12 10
-Example:  0111111111  (all bands except 160m)
+Position: 0  1  2  3  4  5  6  7  8  9  10       11 12
+Bands:    160 80 60 40 30 20 17 15 12 10 10m-bcn 6m 6m-bcn
+Example:  0111111111100  (all HF bands except 160m, no 6m)
 ```
+
+In 96 kHz mode the equivalent `SegmentSel96` is 16 characters, because that mode carries extra centre frequencies for the 20m and 15m NCDXF beacon segments.
 
 The startup script automatically builds this string based on your `BAND_*` environment variables, so you don't need to manually calculate the binary values.
+
+SkimSrv accepts at most 8 segments per instance, and the container runs two instances (ports 7300 and 7301) — so up to 16 bands total. The first 8 enabled bands go to instance 1 and the remainder to instance 2. If you enable more than 16, the excess is listed as a warning in the startup log rather than being silently dropped.
 
 ### Why Disable Bands?
 

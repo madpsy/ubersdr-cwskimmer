@@ -142,6 +142,7 @@ if [ -n "$_API_JSON" ]; then
     _API_QTH=$(_parse_json       "$_API_JSON" '.receiver.location')
     _API_SQUARE=$(_parse_json    "$_API_JSON" '.receiver.gps.maidenhead')
     _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.cw_skimmer_rbn_spots')
+    _API_MAX_FREQ=$(_parse_json  "$_API_JSON" '.tuning_range.max_frequency')
 
     # Helper: update a key in .env only if the API returned a non-empty value
     _update_env() {
@@ -157,16 +158,44 @@ if [ -n "$_API_JSON" ]; then
         fi
     }
 
+    # Helper: add a key to .env only if it is not already present. Used for
+    # options introduced after the user's .env was generated — an existing
+    # setting is never overwritten, so a deliberate choice is preserved.
+    _add_env_if_missing() {
+        local key="$1" val="$2"
+        if ! grep -q "^${key}=" .env; then
+            echo "${key}=${val}" >> .env
+            info "  Added   ${key}=${val}  (new option)"
+        fi
+    }
+
     header "Syncing station details from UberSDR API..."
     [ -n "$_API_CALLSIGN"  ] && info "  Callsign  : $_API_CALLSIGN"
     [ -n "$_API_QTH"       ] && info "  QTH       : $_API_QTH"
     [ -n "$_API_SQUARE"    ] && info "  Square    : $_API_SQUARE"
     [ -n "$_API_RBN_SPOTS" ] && info "  RBN spots : $_API_RBN_SPOTS"
+    [ -n "$_API_MAX_FREQ"  ] && info "  Tunes to  : $((_API_MAX_FREQ / 1000000)) MHz"
 
     _update_env "CALLSIGN"      "$_API_CALLSIGN"
     _update_env "QTH"           "$_API_QTH"
     _update_env "SQUARE"        "$_API_SQUARE"
     _update_env "RBN_SEND_SPOTS" "$_API_RBN_SPOTS"
+
+    # 6m (50 MHz) — only offered where the receiver can reach it. The keys are
+    # seeded once; after that the user's choice in .env wins. The container
+    # re-checks the tuning range on every start and disables an out-of-range
+    # band itself, so a stale 'true' here cannot waste a SkimSrv slot.
+    _SIXM_CAPABLE=false
+    if [ -n "$_API_MAX_FREQ" ] && [ "$_API_MAX_FREQ" -ge 50100000 ] 2>/dev/null; then
+        _SIXM_CAPABLE=true
+    fi
+    _add_env_if_missing "BAND_6M"         "$_SIXM_CAPABLE"
+    _add_env_if_missing "BAND_6M_BEACONS" "false"
+    if [ "$_SIXM_CAPABLE" != "true" ] && grep -q "^BAND_6M=true" .env; then
+        warn "  BAND_6M=true in .env, but this receiver only tunes to $((_API_MAX_FREQ / 1000000)) MHz"
+        warn "  6m will be disabled automatically at container start"
+    fi
+
     success ".env updated with latest API values"
 else
     warn "Could not reach UberSDR API — .env values unchanged"

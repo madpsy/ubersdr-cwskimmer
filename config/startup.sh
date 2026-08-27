@@ -4,6 +4,105 @@
 # Ensure restart trigger directory exists
 mkdir -p /var/run/restart-trigger
 
+# ── Band frequency plan (single source of truth) ──────────────────────────────
+# These drive both the SkimSrv .ini files and the tuning-range check below, so
+# the centre frequencies are defined exactly once.
+#
+# 6m notes: the CW-only allocation is 50.000-50.100 MHz in all three IARU
+# regions (50.060-50.080 is the Region 2 beacon sub-band, 50.090 the CW DX
+# calling frequency). The IARU Region 1 beacon band is separate, at
+# 50.400-50.500 MHz, and gets its own centre frequency / BAND_6M_BEACONS flag.
+#
+#   96 kHz : idx 12 = 50.050 MHz (CW, covers 50.002-50.098)
+#            idx 13 = 50.450 MHz (R1 beacons, covers 50.402-50.498)
+#   192 kHz: idx 11 = 50.091 MHz (CW, covers 49.995-50.187 — whole segment)
+#            idx 12 = 50.450 MHz (R1 beacons, covers 50.354-50.546)
+#
+# A 100 kHz segment cannot fit inside a single 96 kHz window, so at 96 kHz the
+# 6m CW centre is placed to cover as much of 50.000-50.100 as possible; the
+# 2 kHz lost at each band edge carries no CW activity.
+CENTER_FREQS_48="1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250"
+CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50050000,50450000,14100000,21150000"
+CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50450000"
+CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
+
+# ── UberSDR tuning range probe ────────────────────────────────────────────────
+# Ask the UberSDR instance what it can actually tune. Bands outside its hardware
+# range (typically 6m on a receiver that stops at 30 MHz) are then disabled
+# automatically, instead of tying up one of the eight SkimSrv slots with a
+# segment that can never produce a spot.
+#
+# Note: curl is not installed in this image — wget is.
+UBERSDR_MIN_FREQ=""
+UBERSDR_MAX_FREQ=""
+
+probe_tuning_range() {
+    local url="http://${UBERSDR_HOST:-ubersdr}:${UBERSDR_PORT:-8080}/api/description"
+    local json range attempt
+    echo "Querying UberSDR tuning range at $url ..."
+    for attempt in 1 2 3; do
+        if json=$(wget -q -O - --timeout=5 --tries=1 "$url" 2>/dev/null) && [ -n "$json" ]; then
+            # Isolate the tuning_range object first ([^}]* stops at its closing
+            # brace), then read the two bounds out of it. Avoids matching
+            # similarly-named keys elsewhere in the document.
+            range=$(printf '%s' "$json" | sed -n 's/.*"tuning_range"[^{]*{\([^}]*\)}.*/\1/p')
+            if [ -n "$range" ]; then
+                UBERSDR_MIN_FREQ=$(printf '%s' "$range" | sed -n 's/.*"min_frequency"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+                UBERSDR_MAX_FREQ=$(printf '%s' "$range" | sed -n 's/.*"max_frequency"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+            fi
+            if [ -n "$UBERSDR_MAX_FREQ" ]; then
+                echo "UberSDR tuning range: ${UBERSDR_MIN_FREQ:-0} - ${UBERSDR_MAX_FREQ} Hz"
+                return 0
+            fi
+            echo "Warning: no usable tuning_range in API response (attempt $attempt/3)"
+        else
+            echo "Warning: could not reach $url (attempt $attempt/3)"
+        fi
+        if [ "$attempt" -lt 3 ]; then sleep 2; fi
+    done
+    UBERSDR_MIN_FREQ=""
+    UBERSDR_MAX_FREQ=""
+    echo "Warning: UberSDR tuning range unknown — band availability will not be checked"
+    echo "Warning: bands beyond the receiver's range (if any) will be left enabled as configured"
+    return 1
+}
+
+# Disable any enabled band whose IQ window falls outside the receiver's range.
+# SkimSrv asks the SDR for a SAMPLE_RATE-wide window centred on the band's
+# centre frequency, so the test is centre +/- SAMPLE_RATE/2 against the bounds.
+# Operates on BAND_NAMES / BAND_SEG_IDX / BAND_VARS / CENTER_FREQ_LIST.
+apply_tuning_range_gate() {
+    local half i name idx centre lo hi gated
+
+    if [ -z "$UBERSDR_MAX_FREQ" ]; then
+        return 0
+    fi
+
+    half=$(( SAMPLE_RATE * 1000 / 2 ))
+    gated=0
+    for (( i=0; i<${#BAND_NAMES[@]}; i++ )); do
+        if [ "${BAND_VARS[$i]}" != "true" ]; then continue; fi
+        name="${BAND_NAMES[$i]}"
+        idx="${BAND_SEG_IDX[$i]}"
+        centre="${CENTER_FREQ_LIST[$idx]}"
+        if [ -z "$centre" ]; then continue; fi
+        lo=$(( centre - half ))
+        hi=$(( centre + half ))
+        if [ "$hi" -gt "$UBERSDR_MAX_FREQ" ] || { [ -n "$UBERSDR_MIN_FREQ" ] && [ "$lo" -lt "$UBERSDR_MIN_FREQ" ]; }; then
+            echo "  ${name}: disabled — needs ${lo}-${hi} Hz, receiver covers ${UBERSDR_MIN_FREQ:-0}-${UBERSDR_MAX_FREQ} Hz"
+            BAND_VARS[$i]="false"
+            printf -v "BAND_${name}" '%s' "false"
+            gated=$(( gated + 1 ))
+        fi
+    done
+
+    if [ "$gated" -gt 0 ]; then
+        echo "$gated band(s) disabled as out of range for this receiver"
+    else
+        echo "All requested bands are within the receiver's tuning range"
+    fi
+}
+
 # Wipe stale Armadillo license/trial state baked in at image build time.
 # This ensures the trial clock starts from container creation, not image build date,
 # and that license .reg files are imported onto a clean slate.
@@ -56,7 +155,7 @@ fi
 # Initialize SkimSrv.ini if it's empty (bind mount created empty file on first run)
 if [ -f "$PATH_INI_SKIMSRV" ] && [ ! -s "$PATH_INI_SKIMSRV" ]; then
     echo "Initializing empty SkimSrv.ini with template..."
-    cat > "$PATH_INI_SKIMSRV" << 'EOF'
+    cat > "$PATH_INI_SKIMSRV" << EOF
 [Window]
 MainFormLeft=543
 MainFormTop=130
@@ -75,13 +174,13 @@ AnnUserOnly=0
 AnnUser=
 MinQuality=1
 [Skimmer]
-CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
-CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50045500,50136500,14100000,21150000
-CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000
+CenterFreqs48=$CENTER_FREQS_48
+CenterFreqs96=$CENTER_FREQS_96
+CenterFreqs192=$CENTER_FREQS_192
 SegmentSel48=00010000000000000
-SegmentSel96=00111111111000
-SegmentSel192=01111111111
-CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000
+SegmentSel96=0000000000000000
+SegmentSel192=0000000000000
+CwSegments=$CW_SEGMENTS
 ThreadCount=2
 DeviceName=01 UberSDR-IQ192
 Rate=2
@@ -116,21 +215,27 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         SEGMENT_SEL_KEY="SegmentSel96"
         # CenterFreqs96 has 16 entries (index 0-15):
         # 0=160m, 1=80m, 2=60m, 3=40m, 4=30m, 5=20m, 6=17m, 7=15m, 8=12m,
-        # 9=10m(low CW), 10=10m(high CW), 11=10m beacons(28.225MHz, covers NCDXF 28.200), 12=6m(low), 13=6m(high)
+        # 9=10m(low CW), 10=10m(high CW, unused), 11=10m beacons(28.225MHz, covers NCDXF 28.200),
+        # 12=6m CW(50.050MHz), 13=6m beacons(50.450MHz, IARU R1 50.400-50.500),
         # 14=20m beacons(14.100MHz, NCDXF), 15=15m beacons(21.150MHz, NCDXF)
-        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "20M_BEACONS" "15M_BEACONS")
-        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 11 14 15)
+        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "6M" "6M_BEACONS" "20M_BEACONS" "15M_BEACONS")
+        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 11 12 13 14 15)
         SEL_LENGTH=16
+        IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_96"
     else
         SAMPLE_RATE=192
         RATE_VALUE=2
         SEGMENT_SEL_KEY="SegmentSel192"
-        # CenterFreqs192 has 11 entries (index 0-10):
+        # CenterFreqs192 has 13 entries (index 0-12):
         # 0=160m, 1=80m, 2=60m, 3=40m, 4=30m, 5=20m, 6=17m, 7=15m, 8=12m,
-        # 9=10m CW, 10=10m beacons(28.225MHz, covers NCDXF 28.200)
-        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS")
-        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 10)
-        SEL_LENGTH=11
+        # 9=10m CW, 10=10m beacons(28.225MHz, covers NCDXF 28.200),
+        # 11=6m CW(50.091MHz), 12=6m beacons(50.450MHz, IARU R1 50.400-50.500)
+        # At 192 kHz a single centre covers the whole 6m CW segment, and the
+        # standard 20m/15m segments already cover the NCDXF beacon frequencies.
+        BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "6M" "6M_BEACONS")
+        BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 10 11 12)
+        SEL_LENGTH=13
+        IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_192"
     fi
 
     echo "Sample rate: ${SAMPLE_RATE} kHz (Rate=${RATE_VALUE}, key=${SEGMENT_SEL_KEY})"
@@ -150,81 +255,94 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     : ${BAND_12M:=true}
     : ${BAND_10M:=true}
     : ${BAND_10M_BEACONS:=true}
+    # 6m is opt-in: many UberSDR instances stop at 30 MHz. The installer turns
+    # BAND_6M on automatically when the API reports the receiver reaches 6m.
+    : ${BAND_6M:=false}
+    # 6m beacons (50.400-50.500) are the IARU Region 1 beacon band only.
+    : ${BAND_6M_BEACONS:=false}
     : ${BAND_20M_BEACONS:=true}
     : ${BAND_15M_BEACONS:=true}
 
-    BAND_VARS=("$BAND_160M" "$BAND_80M" "$BAND_60M" "$BAND_40M" "$BAND_30M" "$BAND_20M" "$BAND_17M" "$BAND_15M" "$BAND_12M" "$BAND_10M" "$BAND_10M_BEACONS" "$BAND_20M_BEACONS" "$BAND_15M_BEACONS")
+    # Read each band's flag by name so BAND_NAMES is the single source of
+    # ordering — no hand-maintained parallel array to drift out of sync.
+    BAND_VARS=()
+    for _band_name in "${BAND_NAMES[@]}"; do
+        _band_var="BAND_${_band_name}"
+        BAND_VARS+=("${!_band_var}")
+    done
+
+    # Ask the receiver what it can tune, then drop any band beyond its range
+    probe_tuning_range || true
+    apply_tuning_range_gate
 
     # Build list of enabled segment indices
     ENABLED_BANDS=()
+    ENABLED_NAMES=()
     BAND_COUNT=${#BAND_SEG_IDX[@]}
     for (( i=0; i<BAND_COUNT; i++ )); do
         if [ "${BAND_VARS[$i]}" = "true" ]; then
             ENABLED_BANDS+=("${BAND_SEG_IDX[$i]}")
+            ENABLED_NAMES+=("${BAND_NAMES[$i]}")
         fi
     done
 
     ENABLED_COUNT=${#ENABLED_BANDS[@]}
     echo "Total enabled bands: $ENABLED_COUNT"
 
-    # Split bands between two instances (SkimSrv has 8-band limit)
-    # Instance 1: First 8 enabled bands (or all if <=8)
-    # Instance 2: Remaining bands (up to 5 more if enabled)
+    # Split bands between the two instances (SkimSrv has an 8-band limit each).
+    # Instance 1: first 8 enabled bands (or all of them if <=8)
+    # Instance 2: the remainder, up to another 8
+    MAX_BANDS_PER_INSTANCE=8
+    MAX_BANDS_TOTAL=$(( MAX_BANDS_PER_INSTANCE * 2 ))
+
+    if [ $ENABLED_COUNT -gt $MAX_BANDS_TOTAL ]; then
+        echo "Warning: $ENABLED_COUNT bands enabled, but only $MAX_BANDS_TOTAL fit across two SkimSrv instances"
+        echo "Warning: these bands will NOT be skimmed — disable others to make room:"
+        for (( i=MAX_BANDS_TOTAL; i<ENABLED_COUNT; i++ )); do
+            echo "Warning:   ${ENABLED_NAMES[$i]}"
+        done
+    fi
 
     # Build zero-filled SegmentSel strings of correct length
     SEGMENT_SEL_1=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
     SEGMENT_SEL_2=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
 
-    if [ $ENABLED_COUNT -le 8 ]; then
-        # All bands go to instance 1
-        for seg_idx in "${ENABLED_BANDS[@]}"; do
-            SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
-        done
-        echo "Instance 1: All $ENABLED_COUNT enabled bands"
-        echo "Instance 2: No bands (standby)"
-    else
-        # First 8 bands to instance 1, remaining to instance 2
-        for i in {0..7}; do
-            if [ $i -lt $ENABLED_COUNT ]; then
-                seg_idx=${ENABLED_BANDS[$i]}
-                SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
-            fi
-        done
+    for (( i=0; i<ENABLED_COUNT && i<MAX_BANDS_PER_INSTANCE; i++ )); do
+        seg_idx=${ENABLED_BANDS[$i]}
+        SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
+    done
 
-        for i in {8..12}; do
-            if [ $i -lt $ENABLED_COUNT ]; then
-                seg_idx=${ENABLED_BANDS[$i]}
-                SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$seg_idx}1${SEGMENT_SEL_2:$((seg_idx+1))}"
-            fi
-        done
-        echo "Instance 1: First 8 enabled bands"
-        echo "Instance 2: Remaining $((ENABLED_COUNT - 8)) band(s)"
+    for (( i=MAX_BANDS_PER_INSTANCE; i<ENABLED_COUNT && i<MAX_BANDS_TOTAL; i++ )); do
+        seg_idx=${ENABLED_BANDS[$i]}
+        SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$seg_idx}1${SEGMENT_SEL_2:$((seg_idx+1))}"
+    done
+
+    if [ $ENABLED_COUNT -le $MAX_BANDS_PER_INSTANCE ]; then
+        echo "Instance 1: all $ENABLED_COUNT enabled band(s)"
+        echo "Instance 2: no bands (standby)"
+    else
+        INSTANCE_2_COUNT=$ENABLED_COUNT
+        if [ $INSTANCE_2_COUNT -gt $MAX_BANDS_TOTAL ]; then
+            INSTANCE_2_COUNT=$MAX_BANDS_TOTAL
+        fi
+        echo "Instance 1: first $MAX_BANDS_PER_INSTANCE enabled bands"
+        echo "Instance 2: remaining $(( INSTANCE_2_COUNT - MAX_BANDS_PER_INSTANCE )) band(s)"
     fi
 
     echo ""
     echo "Band configuration:"
-    echo "  160m:         $BAND_160M"
-    echo "  80m:          $BAND_80M"
-    echo "  60m:          $BAND_60M"
-    echo "  40m:          $BAND_40M"
-    echo "  30m:          $BAND_30M"
-    echo "  20m:          $BAND_20M"
-    echo "  17m:          $BAND_17M"
-    echo "  15m:          $BAND_15M"
-    echo "  12m:          $BAND_12M"
-    echo "  10m:          $BAND_10M"
-    echo "  10m beacons:  $BAND_10M_BEACONS"
-    echo "  20m beacons:  $BAND_20M_BEACONS"
-    echo "  15m beacons:  $BAND_15M_BEACONS"
+    for (( i=0; i<BAND_COUNT; i++ )); do
+        printf "  %-14s %s\n" "${BAND_NAMES[$i]}:" "${BAND_VARS[$i]}"
+    done
     echo ""
     echo "Instance 1 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_1"
     echo "Instance 2 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_2"
 
     # Configure instance 1
     echo "Configuring SkimSrv instance 1..."
-    sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000/g" "$PATH_INI_SKIMSRV" | \
-    sed "s/^CenterFreqs96=.*/CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50045500,50136500,14100000,21150000/g" | \
-    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000|g" | \
+    sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" "$PATH_INI_SKIMSRV" | \
+    sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
+    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_1/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7300/g" | \
@@ -242,7 +360,7 @@ if [ -f "$PATH_INI_SKIMSRV_2" ]; then
     # Initialize if empty
     if [ ! -s "$PATH_INI_SKIMSRV_2" ]; then
         echo "Initializing empty SkimSrv-2.ini with template..."
-        cat > "$PATH_INI_SKIMSRV_2" << 'EOF'
+        cat > "$PATH_INI_SKIMSRV_2" << EOF
 [Window]
 MainFormLeft=543
 MainFormTop=130
@@ -261,13 +379,13 @@ AnnUserOnly=0
 AnnUser=
 MinQuality=1
 [Skimmer]
-CenterFreqs48=1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250
-CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50045500,50136500,14100000,21150000
-CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000
+CenterFreqs48=$CENTER_FREQS_48
+CenterFreqs96=$CENTER_FREQS_96
+CenterFreqs192=$CENTER_FREQS_192
 SegmentSel48=00010000000000000
-SegmentSel96=00000000000000
-SegmentSel192=00000000000
-CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000
+SegmentSel96=0000000000000000
+SegmentSel192=0000000000000
+CwSegments=$CW_SEGMENTS
 ThreadCount=2
 DeviceName=01 UberSDR-IQ192
 Rate=2
@@ -285,9 +403,9 @@ EOF
     sed "s/^QTH=.*/QTH=$QTH_ESC/g" | \
     sed "s/^Name=.*/Name=$NAME_ESC/g" | \
     sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
-    sed "s/^CenterFreqs192=.*/CenterFreqs192=1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000/g" | \
-    sed "s/^CenterFreqs96=.*/CenterFreqs96=1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50045500,50136500,14100000,21150000/g" | \
-    sed "s|^CwSegments=.*|CwSegments=1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000|g" | \
+    sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" | \
+    sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
+    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_2/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7301/g" | \

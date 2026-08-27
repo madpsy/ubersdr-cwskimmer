@@ -149,7 +149,7 @@ except Exception:
     # Try the default address first (or env-supplied values if already set).
     # If the API call succeeds, host/port are confirmed and no prompts are needed.
     # If it fails, fall back to prompting for host/port.
-    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""; API_RBN_SPOTS=""
+    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""; API_RBN_SPOTS=""; API_MAX_FREQ=""
     _try_api() {
         local host="$1" port="$2"
         local url="http://${host}:${port}/api/description"
@@ -163,6 +163,7 @@ except Exception:
                 API_QTH=$(_parse_json    "$json" '.receiver.location')
                 API_SQUARE=$(_parse_json "$json" '.receiver.gps.maidenhead')
                 API_RBN_SPOTS=$(_parse_json "$json" '.cw_skimmer_rbn_spots')
+                API_MAX_FREQ=$(_parse_json  "$json" '.tuning_range.max_frequency')
                 return 0
             fi
         fi
@@ -181,6 +182,7 @@ except Exception:
             [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
             [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
             [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
+            [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
         else
             warn "Could not reach UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT} — falling back to prompts"
         fi
@@ -200,6 +202,7 @@ except Exception:
                 [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
                 [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
                 [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
+                [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
                 _PROBE_DONE=true
                 break
             fi
@@ -219,6 +222,7 @@ except Exception:
                 [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
                 [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
                 [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
+                [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
             else
                 warn "Could not reach UberSDR API — station details must be entered manually"
             fi
@@ -302,6 +306,17 @@ except Exception:
         RBN_SEND_SPOTS=true
     fi
 
+    # ── 6m availability ────────────────────────────────────────────────────────
+    # 6m is only worth enabling if the receiver can actually tune 50 MHz. Many
+    # UberSDR instances stop at 30 MHz, where a 6m segment would occupy one of
+    # the eight SkimSrv slots without ever producing a spot.
+    # The container re-checks this on every start (see config/startup.sh), so
+    # this only decides the initial default written to .env.
+    SIXM_CAPABLE=false
+    if [ -n "$API_MAX_FREQ" ] && [ "$API_MAX_FREQ" -ge 50100000 ] 2>/dev/null; then
+        SIXM_CAPABLE=true
+    fi
+
     # ── Band selection ─────────────────────────────────────────────────────────
     # Priority: ALL_BANDS env var > individual BAND_* env vars > API success (all true) > prompts
     # Pre-set individual bands: BAND_160M=false bash install-hub.sh
@@ -311,8 +326,9 @@ except Exception:
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
         BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
+        BAND_6M="$SIXM_CAPABLE"; BAND_6M_BEACONS=false
         info "All bands enabled (ALL_BANDS=true)"
-    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}${BAND_10M_BEACONS:-}" ]; then
+    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}${BAND_10M_BEACONS:-}${BAND_6M:-}${BAND_6M_BEACONS:-}" ]; then
         # At least one band env var is set — use env vars for all, defaulting unset ones to true
         BAND_160M="${BAND_160M:-true}"; BAND_80M="${BAND_80M:-true}"
         BAND_60M="${BAND_60M:-true}";   BAND_40M="${BAND_40M:-true}"
@@ -320,13 +336,22 @@ except Exception:
         BAND_17M="${BAND_17M:-true}";   BAND_15M="${BAND_15M:-true}"
         BAND_12M="${BAND_12M:-true}";   BAND_10M="${BAND_10M:-true}"
         BAND_10M_BEACONS="${BAND_10M_BEACONS:-true}"
+        # 6m defaults follow the receiver, not the blanket "true" of the HF bands
+        BAND_6M="${BAND_6M:-$SIXM_CAPABLE}"
+        BAND_6M_BEACONS="${BAND_6M_BEACONS:-false}"
         info "Band selection loaded from environment variables"
     elif [ -n "$API_CALLSIGN" ]; then
         # API succeeded — enable all bands by default, no prompts
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
         BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
+        BAND_6M="$SIXM_CAPABLE"; BAND_6M_BEACONS=false
         info "All bands enabled (auto-detected via API)"
+        if [ "$SIXM_CAPABLE" = "true" ]; then
+            info "6m enabled — receiver tunes to $((API_MAX_FREQ / 1000000)) MHz"
+        else
+            info "6m left disabled — receiver does not reach 50 MHz"
+        fi
     else
         header "Band selection"
         echo "Enable/disable bands — type 'true' or 'false' (Enter = keep default):"
@@ -349,6 +374,14 @@ except Exception:
         BAND_12M=$(prompt_band  "12m"  "true")
         BAND_10M=$(prompt_band  "10m"  "true")
         BAND_10M_BEACONS=$(prompt_band "10m beacons (28.2-28.3 MHz)" "true")
+        if [ "$SIXM_CAPABLE" = "true" ]; then
+            BAND_6M=$(prompt_band         "6m CW (50.000-50.100 MHz)" "true")
+            BAND_6M_BEACONS=$(prompt_band "6m beacons (50.4-50.5 MHz, IARU Region 1 only)" "false")
+        else
+            BAND_6M=false
+            BAND_6M_BEACONS=false
+            info "6m not offered — receiver does not reach 50 MHz"
+        fi
     fi
 
     # Generate .env from .env.example by substituting collected values.
@@ -373,6 +406,8 @@ except Exception:
         -e "s|^BAND_12M=.*|BAND_12M=${BAND_12M}|" \
         -e "s|^BAND_10M=.*|BAND_10M=${BAND_10M}|" \
         -e "s|^BAND_10M_BEACONS=.*|BAND_10M_BEACONS=${BAND_10M_BEACONS}|" \
+        -e "s|^BAND_6M=.*|BAND_6M=${BAND_6M}|" \
+        -e "s|^BAND_6M_BEACONS=.*|BAND_6M_BEACONS=${BAND_6M_BEACONS}|" \
         .env.example > .env
     success ".env created"
 fi
