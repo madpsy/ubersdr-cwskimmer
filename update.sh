@@ -101,6 +101,17 @@ _UBERSDR_PORT=$(_env_val UBERSDR_PORT)
 _UBERSDR_HOST="${_UBERSDR_HOST:-ubersdr.local}"
 _UBERSDR_PORT="${_UBERSDR_PORT:-8080}"
 
+# Format a frequency in Hz as MHz with 3 decimal places, using integer
+# arithmetic only (bc/awk are not guaranteed to be present).
+_fmt_mhz() {
+    local hz="$1"
+    # Reject empty / non-numeric rather than letting $(( )) silently read it as 0
+    case "$hz" in
+        ''|*[!0-9]*) printf '?'; return ;;
+    esac
+    printf '%d.%03d' $(( hz / 1000000 )) $(( (hz % 1000000) / 1000 ))
+}
+
 # JSON parser (jq preferred, python3 fallback)
 _parse_json() {
     local json="$1" key="$2"
@@ -142,7 +153,14 @@ if [ -n "$_API_JSON" ]; then
     _API_QTH=$(_parse_json       "$_API_JSON" '.receiver.location')
     _API_SQUARE=$(_parse_json    "$_API_JSON" '.receiver.gps.maidenhead')
     _API_RBN_SPOTS=$(_parse_json "$_API_JSON" '.cw_skimmer_rbn_spots')
+    _API_MIN_FREQ=$(_parse_json  "$_API_JSON" '.tuning_range.min_frequency')
     _API_MAX_FREQ=$(_parse_json  "$_API_JSON" '.tuning_range.max_frequency')
+
+    # 6m needs a receiver that reaches 50 MHz; many UberSDR instances stop at 30.
+    _SIXM_CAPABLE=false
+    if [ -n "$_API_MAX_FREQ" ] && [ "$_API_MAX_FREQ" -ge 50100000 ] 2>/dev/null; then
+        _SIXM_CAPABLE=true
+    fi
 
     # Helper: update a key in .env only if the API returned a non-empty value
     _update_env() {
@@ -174,25 +192,27 @@ if [ -n "$_API_JSON" ]; then
     [ -n "$_API_QTH"       ] && info "  QTH       : $_API_QTH"
     [ -n "$_API_SQUARE"    ] && info "  Square    : $_API_SQUARE"
     [ -n "$_API_RBN_SPOTS" ] && info "  RBN spots : $_API_RBN_SPOTS"
-    [ -n "$_API_MAX_FREQ"  ] && info "  Tunes to  : $((_API_MAX_FREQ / 1000000)) MHz"
+    if [ -n "$_API_MAX_FREQ" ]; then
+        info "  Tuning    : $(_fmt_mhz "${_API_MIN_FREQ:-0}") - $(_fmt_mhz "$_API_MAX_FREQ") MHz"
+        if [ "$_SIXM_CAPABLE" = "true" ]; then
+            info "  6m (50MHz): available"
+        else
+            info "  6m (50MHz): not available — receiver stops below 50 MHz"
+        fi
+    fi
 
     _update_env "CALLSIGN"      "$_API_CALLSIGN"
     _update_env "QTH"           "$_API_QTH"
     _update_env "SQUARE"        "$_API_SQUARE"
     _update_env "RBN_SEND_SPOTS" "$_API_RBN_SPOTS"
 
-    # 6m (50 MHz) — only offered where the receiver can reach it. The keys are
-    # seeded once; after that the user's choice in .env wins. The container
-    # re-checks the tuning range on every start and disables an out-of-range
-    # band itself, so a stale 'true' here cannot waste a SkimSrv slot.
-    _SIXM_CAPABLE=false
-    if [ -n "$_API_MAX_FREQ" ] && [ "$_API_MAX_FREQ" -ge 50100000 ] 2>/dev/null; then
-        _SIXM_CAPABLE=true
-    fi
+    # 6m keys are seeded once; after that the user's choice in .env wins. The
+    # container re-checks the tuning range on every start and disables an
+    # out-of-range band itself, so a stale 'true' cannot waste a SkimSrv slot.
     _add_env_if_missing "BAND_6M"         "$_SIXM_CAPABLE"
     _add_env_if_missing "BAND_6M_BEACONS" "false"
     if [ "$_SIXM_CAPABLE" != "true" ] && grep -q "^BAND_6M=true" .env; then
-        warn "  BAND_6M=true in .env, but this receiver only tunes to $((_API_MAX_FREQ / 1000000)) MHz"
+        warn "  BAND_6M=true in .env, but this receiver only tunes to $(_fmt_mhz "$_API_MAX_FREQ") MHz"
         warn "  6m will be disabled automatically at container start"
     fi
 

@@ -175,9 +175,24 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 | `BAND_10M` | `true` | 28.091 MHz | 10m | 10 meter band |
 | `BAND_10M_BEACONS` | `true` | 28.225 MHz | 10m | Beacon segment (28.200-28.300 MHz) |
 | `BAND_6M` | `false` | 50.091 MHz | 6m | CW allocation, 50.000-50.100 MHz — requires a receiver that tunes above 50 MHz |
-| `BAND_6M_BEACONS` | `false` | 50.450 MHz | 6m | IARU **Region 1** beacon band, 50.400-50.500 MHz |
+| `BAND_6M_BEACONS` | `false` | 50.491 MHz | 6m | IARU **Region 1** beacon band, 50.400-50.500 MHz |
 
 **Note**: The center frequencies and CW segments are automatically configured. These settings only control which bands are enabled/disabled.
+
+#### Center frequency vs. displayed dial frequency
+
+The `CenterFreqs*` values above are **not** what SkimSrv shows on screen. SkimSrv uses only part of each sampled window — 91 kHz of the 96, and 182 kHz of the 192, the rest being guard band — and it displays the **bottom edge of that usable passband** as the dial frequency.
+
+So every entry is written as `segment start + 45500` (96 kHz mode) or `segment start + 91000` (192 kHz mode), which makes each band read as a round number:
+
+| Band | 96 kHz centre | 192 kHz centre | Displayed as |
+|------|---------------|----------------|--------------|
+| 40m | 7.0455 MHz | 7.091 MHz | `7.000.0` |
+| 10m | 28.0455 MHz | 28.091 MHz | `28.000.0` |
+| 6m | 50.0545 MHz | 50.091 MHz | `50.009.0` / `50.000.0` |
+| 6m beacons | 50.4455 MHz | 50.491 MHz | `50.400.0` |
+
+6m is the one band where the two modes differ. At 192 kHz the 182 kHz passband swallows the whole 100 kHz CW allocation, so the centre follows the usual pattern and reads `50.000.0`. At 96 kHz only 91 kHz is usable, so 9 kHz of the allocation has to be given up — the bottom 9 kHz (50.000-50.009) is dropped as dead band-edge space, keeping the 50.060-50.080 Region 2 beacon sub-band and the 50.090 CW DX calling frequency comfortably inside the passband instead of against its roll-off. That is why 6m reads `50.009.0` rather than `50.000.0` in 96 kHz mode.
 
 #### 6m and the receiver's tuning range
 
@@ -555,7 +570,7 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 | 10m | 28.091 MHz | 28.000-28.070 MHz | DX during solar max |
 | 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
 | 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
-| 6m beacons | 50.450 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
+| 6m beacons | 50.491 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
 
 ### Technical Details
 

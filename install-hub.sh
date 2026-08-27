@@ -125,6 +125,17 @@ else
 
     header "Station configuration"
 
+    # Format a frequency in Hz as MHz with 3 decimal places, using integer
+    # arithmetic only (bc/awk are not guaranteed to be present).
+    _fmt_mhz() {
+        local hz="$1"
+        # Reject empty / non-numeric rather than letting $(( )) silently read it as 0
+        case "$hz" in
+            ''|*[!0-9]*) printf '?'; return ;;
+        esac
+        printf '%d.%03d' $(( hz / 1000000 )) $(( (hz % 1000000) / 1000 ))
+    }
+
     # ── JSON parser helper (jq preferred, python3 fallback) ───────────────────
     _parse_json() {
         local json="$1" key="$2"
@@ -149,7 +160,8 @@ except Exception:
     # Try the default address first (or env-supplied values if already set).
     # If the API call succeeds, host/port are confirmed and no prompts are needed.
     # If it fails, fall back to prompting for host/port.
-    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""; API_RBN_SPOTS=""; API_MAX_FREQ=""
+    API_CALLSIGN=""; API_QTH=""; API_SQUARE=""; API_RBN_SPOTS=""
+    API_MIN_FREQ=""; API_MAX_FREQ=""
     _try_api() {
         local host="$1" port="$2"
         local url="http://${host}:${port}/api/description"
@@ -163,6 +175,7 @@ except Exception:
                 API_QTH=$(_parse_json    "$json" '.receiver.location')
                 API_SQUARE=$(_parse_json "$json" '.receiver.gps.maidenhead')
                 API_RBN_SPOTS=$(_parse_json "$json" '.cw_skimmer_rbn_spots')
+                API_MIN_FREQ=$(_parse_json  "$json" '.tuning_range.min_frequency')
                 API_MAX_FREQ=$(_parse_json  "$json" '.tuning_range.max_frequency')
                 return 0
             fi
@@ -182,7 +195,7 @@ except Exception:
             [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
             [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
             [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
-            [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
+            [ -n "$API_MAX_FREQ"  ] && info "  Tuning    : $(_fmt_mhz "${API_MIN_FREQ:-0}") - $(_fmt_mhz "$API_MAX_FREQ") MHz"
         else
             warn "Could not reach UberSDR API at http://${UBERSDR_HOST}:${UBERSDR_PORT} — falling back to prompts"
         fi
@@ -202,7 +215,7 @@ except Exception:
                 [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
                 [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
                 [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
-                [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
+                [ -n "$API_MAX_FREQ"  ] && info "  Tuning    : $(_fmt_mhz "${API_MIN_FREQ:-0}") - $(_fmt_mhz "$API_MAX_FREQ") MHz"
                 _PROBE_DONE=true
                 break
             fi
@@ -222,7 +235,7 @@ except Exception:
                 [ -n "$API_QTH"       ] && info "  QTH       : $API_QTH"
                 [ -n "$API_SQUARE"    ] && info "  Square    : $API_SQUARE"
                 [ -n "$API_RBN_SPOTS" ] && info "  RBN spots : $API_RBN_SPOTS"
-                [ -n "$API_MAX_FREQ"  ] && info "  Tunes to  : $((API_MAX_FREQ / 1000000)) MHz"
+                [ -n "$API_MAX_FREQ"  ] && info "  Tuning    : $(_fmt_mhz "${API_MIN_FREQ:-0}") - $(_fmt_mhz "$API_MAX_FREQ") MHz"
             else
                 warn "Could not reach UberSDR API — station details must be entered manually"
             fi
@@ -348,7 +361,7 @@ except Exception:
         BAND_6M="$SIXM_CAPABLE"; BAND_6M_BEACONS=false
         info "All bands enabled (auto-detected via API)"
         if [ "$SIXM_CAPABLE" = "true" ]; then
-            info "6m enabled — receiver tunes to $((API_MAX_FREQ / 1000000)) MHz"
+            info "6m enabled — receiver tunes to $(_fmt_mhz "$API_MAX_FREQ") MHz"
         else
             info "6m left disabled — receiver does not reach 50 MHz"
         fi

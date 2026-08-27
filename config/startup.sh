@@ -13,17 +13,29 @@ mkdir -p /var/run/restart-trigger
 # calling frequency). The IARU Region 1 beacon band is separate, at
 # 50.400-50.500 MHz, and gets its own centre frequency / BAND_6M_BEACONS flag.
 #
-#   96 kHz : idx 12 = 50.050 MHz (CW, covers 50.002-50.098)
-#            idx 13 = 50.450 MHz (R1 beacons, covers 50.402-50.498)
-#   192 kHz: idx 11 = 50.091 MHz (CW, covers 49.995-50.187 — whole segment)
-#            idx 12 = 50.450 MHz (R1 beacons, covers 50.354-50.546)
+# SkimSrv does not use the whole sampled bandwidth: the usable passband is
+# +/-45.5 kHz at 96 kHz (91 of 96) and +/-91 kHz at 192 kHz (182 of 192), the
+# remainder being guard band. It also displays the BOTTOM of that passband as
+# the dial frequency, not the centre — which is why every entry here is
+# 'segment start + 45500' (or + 91000), so each band reads as a round number.
 #
-# A 100 kHz segment cannot fit inside a single 96 kHz window, so at 96 kHz the
-# 6m CW centre is placed to cover as much of 50.000-50.100 as possible; the
-# 2 kHz lost at each band edge carries no CW activity.
+#   96 kHz : idx 12 = 50.0545 MHz (CW, covers 50.009-50.100, reads 50.009.0)
+#            idx 13 = 50.4455 MHz (R1 beacons, covers 50.400-50.491, reads 50.400.0)
+#   192 kHz: idx 11 = 50.091  MHz (CW, covers 50.000-50.182, reads 50.000.0)
+#            idx 12 = 50.491  MHz (R1 beacons, covers 50.400-50.582, reads 50.400.0)
+#
+# At 192 kHz both 6m segments fit whole. At 96 kHz a 100 kHz segment does not
+# fit in a 91 kHz passband, so 9 kHz must be given up: for CW we drop
+# 50.000-50.009, dead band-edge space, which keeps the 50.060-50.080 Region 2
+# beacon sub-band and the 50.090 CW DX calling frequency well inside the
+# passband rather than against its roll-off. For the beacon band we drop the
+# top 9 kHz, keeping the busier lower half and a round dial reading.
+#
+# Note the tuning-range gate below still tests centre +/- SAMPLE_RATE/2, not
+# the usable half-width: the SDR has to deliver the full sampled window.
 CENTER_FREQS_48="1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250"
-CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50050000,50450000,14100000,21150000"
-CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50450000"
+CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50054500,50445500,14100000,21150000"
+CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50491000"
 CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
 
 # ── UberSDR tuning range probe ────────────────────────────────────────────────
