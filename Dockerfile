@@ -50,6 +50,10 @@ RUN wget -O "Aggregator v${V_RBNAGGREGATOR}.exe" "https://cms.reversebeacon.net/
 
 # Download and install ka9q_ubersdr CW_Skimmer driver
 WORKDIR /ubersdr_driver
+# Bump DRIVER_CACHEBUST (e.g. ./docker.sh --fresh-driver) to force a re-download,
+# the release URL is a rolling "latest" so the layer would otherwise stay cached
+ARG DRIVER_CACHEBUST=0
+RUN echo "driver cachebust: ${DRIVER_CACHEBUST}"
 RUN wget https://github.com/madpsy/ka9q_ubersdr/releases/download/latest/CW_Skimmer.zip
 RUN unzip CW_Skimmer.zip
 

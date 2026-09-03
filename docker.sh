@@ -1,20 +1,25 @@
 #!/bin/bash
 
 # Build and push ubersdr-cwskimmer images
-# Usage: ./docker.sh [version] [--no-push]
+# Usage: ./docker.sh [version] [--no-push] [--fresh-driver]
 # Example: ./docker.sh 0.9
 # Example: ./docker.sh 0.9 --no-push
+# Example: ./docker.sh 0.9 --fresh-driver   # re-download the latest CW_Skimmer.zip
 
 set -e
 
 # Parse arguments
 VERSION="0.9"
 NO_PUSH=false
+FRESH_DRIVER=false
 
 for arg in "$@"; do
     case $arg in
         --no-push)
             NO_PUSH=true
+            ;;
+        --fresh-driver)
+            FRESH_DRIVER=true
             ;;
         *)
             VERSION="$arg"
@@ -54,7 +59,15 @@ if [ "$PATT3CH_SUCCESS" = "false" ]; then
 fi
 
 # Build using docker-compose
-docker-compose build
+# The CW_Skimmer driver comes from a rolling "latest" release URL, so its layer
+# stays cached forever unless DRIVER_CACHEBUST changes - --fresh-driver does that,
+# invalidating only the driver download onwards (the wine stage stays cached).
+if [ "$FRESH_DRIVER" = true ]; then
+    echo "Forcing a fresh CW_Skimmer.zip download"
+    docker-compose build --build-arg DRIVER_CACHEBUST="$(date +%s)" cwskimmer
+else
+    docker-compose build
+fi
 
 # Tag the built image with version and latest
 echo "Tagging image as $IMAGE:$VERSION"
