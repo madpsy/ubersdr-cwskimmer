@@ -179,6 +179,19 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 
 **Note**: The center frequencies and CW segments are automatically configured. These settings only control which bands are enabled/disabled.
 
+#### NCDXF beacon segments (96 kHz mode)
+
+| Variable | Default | Center Freq | Decodes | Description |
+|----------|---------|-------------|---------|-------------|
+| `BAND_20M_BEACONS` | `true` | 14.100 MHz | 14.095-14.105 MHz | 20m NCDXF beacon slot |
+| `BAND_15M_BEACONS` | `true` | 21.150 MHz | 21.145-21.155 MHz | 15m NCDXF beacon slot |
+
+A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that can, with a CW segment of its own so the flag switches real decoders on and off.
+
+They are **independent** of `BAND_20M` / `BAND_15M` — enable a beacon segment with its parent band off to skim beacons only, or with it on to cover both. Each costs one of the eight SkimSrv slots per instance.
+
+At 192 kHz the 182 kHz-wide 20m and 15m channels already cover 14.100 and 21.150, so `SegmentSel192` has no entry for them and both settings are ignored.
+
 #### Center frequency vs. displayed dial frequency
 
 The `CenterFreqs*` values above are **not** what SkimSrv shows on screen. SkimSrv uses only part of each sampled window — 91 kHz of the 96, and 182 kHz of the 192, the rest being guard band — and it displays the **bottom edge of that usable passband** as the dial frequency.
@@ -550,6 +563,8 @@ BAND_15M=true
 BAND_12M=true
 BAND_10M=true
 BAND_10M_BEACONS=true
+BAND_20M_BEACONS=true   # 14.100 MHz NCDXF beacons, 96 kHz mode only
+BAND_15M_BEACONS=true   # 21.150 MHz NCDXF beacons, 96 kHz mode only
 BAND_6M=false           # 50 MHz — needs a receiver that tunes above 30 MHz
 BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 ```
@@ -563,14 +578,16 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 | 60m | 5.355 MHz | 5.258-5.370 MHz | Regional, limited allocation |
 | 40m | 7.091 MHz | 7.000-7.070 MHz | Workhorse DX band |
 | 30m | 10.191 MHz | 10.100-10.130 MHz | WARC band, CW only |
-| 20m | 14.091 MHz | 14.000-14.070 MHz | Premier DX band |
+| 20m | 14.091 MHz | 14.000-14.105 MHz | Premier DX band |
 | 17m | 18.159 MHz | 18.068-18.095 MHz | WARC band |
-| 15m | 21.091 MHz | 21.000-21.070 MHz | DX when open |
+| 15m | 21.091 MHz | 21.000-21.155 MHz | DX when open |
 | 12m | 24.981 MHz | 24.890-24.920 MHz | WARC band |
 | 10m | 28.091 MHz | 28.000-28.070 MHz | DX during solar max |
 | 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
 | 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
 | 6m beacons | 50.491 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
+| 20m beacons | 14.100 MHz | 14.095-14.105 MHz | NCDXF beacons, 96 kHz mode only |
+| 15m beacons | 21.150 MHz | 21.145-21.155 MHz | NCDXF beacons, 96 kHz mode only |
 
 ### Technical Details
 
@@ -582,7 +599,7 @@ Bands:    160 80 60 40 30 20 17 15 12 10 10m-bcn 6m 6m-bcn
 Example:  0111111111100  (all HF bands except 160m, no 6m)
 ```
 
-In 96 kHz mode the equivalent `SegmentSel96` is 16 characters, because that mode carries extra centre frequencies for the 20m and 15m NCDXF beacon segments.
+In 96 kHz mode the equivalent `SegmentSel96` is 16 characters, because that mode carries extra centre frequencies for the 20m and 15m NCDXF beacon segments (positions 14 and 15, driven by `BAND_20M_BEACONS` and `BAND_15M_BEACONS`).
 
 The startup script automatically builds this string based on your `BAND_*` environment variables, so you don't need to manually calculate the binary values.
 

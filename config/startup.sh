@@ -36,7 +36,19 @@ mkdir -p /var/run/restart-trigger
 CENTER_FREQS_48="1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250"
 CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50054500,50445500,14100000,21150000"
 CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50491000"
-CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
+# Every enabled centre frequency needs at least one CwSegments entry inside its
+# usable passband, or SkimSrv opens the channel and allocates no decoders to it.
+# The 10m and 6m beacon centres each have a segment of their own; the 20m and
+# 15m NCDXF beacon centres (96 kHz mode only) did not - the nearest entries,
+# 14.000-14.105 and 21.000-21.155, sit almost entirely under the main 20m/15m
+# channels, which claim them. So the NCDXF frequencies are split off into 10 kHz
+# segments of their own: 14.095-14.105 falls wholly inside the 14.100 channel
+# and nowhere near the 96 kHz 20m passband (which stops at 14.091), and likewise
+# 21.145-21.155 against the 21.150 channel and the 21.091 passband edge. Each
+# beacon flag then turns real decoders on and off on its own, and at 192 kHz -
+# where the beacon centres do not exist - both halves still land in the one
+# wide 20m/15m channel, so coverage there is unchanged.
+CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14095000,14095000-14105000,18068000-18115000,21000000-21145000,21145000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
 
 # ── UberSDR tuning range probe ────────────────────────────────────────────────
 # Ask the UberSDR instance what it can actually tune. Bands outside its hardware

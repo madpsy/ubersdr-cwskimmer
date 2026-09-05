@@ -211,6 +211,13 @@ if [ -n "$_API_JSON" ]; then
     # out-of-range band itself, so a stale 'true' cannot waste a SkimSrv slot.
     _add_env_if_missing "BAND_6M"         "$_SIXM_CAPABLE"
     _add_env_if_missing "BAND_6M_BEACONS" "false"
+
+    # Beacon segments added after the first releases; seed them so they are
+    # visible and editable in .env like every other band. Only 10m applies at
+    # 192 kHz - the 20m/15m ones are 96 kHz-only and ignored otherwise.
+    _add_env_if_missing "BAND_10M_BEACONS" "true"
+    _add_env_if_missing "BAND_20M_BEACONS" "true"
+    _add_env_if_missing "BAND_15M_BEACONS" "true"
     if [ "$_SIXM_CAPABLE" != "true" ] && grep -q "^BAND_6M=true" .env; then
         warn "  BAND_6M=true in .env, but this receiver only tunes to $(_fmt_mhz "$_API_MAX_FREQ") MHz"
         warn "  6m will be disabled automatically at container start"

@@ -339,9 +339,10 @@ except Exception:
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
         BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
+        BAND_20M_BEACONS=true; BAND_15M_BEACONS=true
         BAND_6M="$SIXM_CAPABLE"; BAND_6M_BEACONS=false
         info "All bands enabled (ALL_BANDS=true)"
-    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}${BAND_10M_BEACONS:-}${BAND_6M:-}${BAND_6M_BEACONS:-}" ]; then
+    elif [ -n "${BAND_160M:-}${BAND_80M:-}${BAND_60M:-}${BAND_40M:-}${BAND_30M:-}${BAND_20M:-}${BAND_17M:-}${BAND_15M:-}${BAND_12M:-}${BAND_10M:-}${BAND_10M_BEACONS:-}${BAND_20M_BEACONS:-}${BAND_15M_BEACONS:-}${BAND_6M:-}${BAND_6M_BEACONS:-}" ]; then
         # At least one band env var is set — use env vars for all, defaulting unset ones to true
         BAND_160M="${BAND_160M:-true}"; BAND_80M="${BAND_80M:-true}"
         BAND_60M="${BAND_60M:-true}";   BAND_40M="${BAND_40M:-true}"
@@ -349,6 +350,9 @@ except Exception:
         BAND_17M="${BAND_17M:-true}";   BAND_15M="${BAND_15M:-true}"
         BAND_12M="${BAND_12M:-true}";   BAND_10M="${BAND_10M:-true}"
         BAND_10M_BEACONS="${BAND_10M_BEACONS:-true}"
+        # 96 kHz-only NCDXF beacon segments; ignored at 192 kHz
+        BAND_20M_BEACONS="${BAND_20M_BEACONS:-true}"
+        BAND_15M_BEACONS="${BAND_15M_BEACONS:-true}"
         # 6m defaults follow the receiver, not the blanket "true" of the HF bands
         BAND_6M="${BAND_6M:-$SIXM_CAPABLE}"
         BAND_6M_BEACONS="${BAND_6M_BEACONS:-false}"
@@ -358,6 +362,7 @@ except Exception:
         BAND_160M=true; BAND_80M=true; BAND_60M=true; BAND_40M=true
         BAND_30M=true;  BAND_20M=true; BAND_17M=true; BAND_15M=true
         BAND_12M=true;  BAND_10M=true; BAND_10M_BEACONS=true
+        BAND_20M_BEACONS=true; BAND_15M_BEACONS=true
         BAND_6M="$SIXM_CAPABLE"; BAND_6M_BEACONS=false
         info "All bands enabled (auto-detected via API)"
         if [ "$SIXM_CAPABLE" = "true" ]; then
@@ -387,6 +392,8 @@ except Exception:
         BAND_12M=$(prompt_band  "12m"  "true")
         BAND_10M=$(prompt_band  "10m"  "true")
         BAND_10M_BEACONS=$(prompt_band "10m beacons (28.2-28.3 MHz)" "true")
+        BAND_20M_BEACONS=$(prompt_band "20m NCDXF beacons (14.100 MHz, 96 kHz mode only)" "true")
+        BAND_15M_BEACONS=$(prompt_band "15m NCDXF beacons (21.150 MHz, 96 kHz mode only)" "true")
         if [ "$SIXM_CAPABLE" = "true" ]; then
             BAND_6M=$(prompt_band         "6m CW (50.000-50.100 MHz)" "true")
             BAND_6M_BEACONS=$(prompt_band "6m beacons (50.4-50.5 MHz, IARU Region 1 only)" "false")
@@ -419,6 +426,8 @@ except Exception:
         -e "s|^BAND_12M=.*|BAND_12M=${BAND_12M}|" \
         -e "s|^BAND_10M=.*|BAND_10M=${BAND_10M}|" \
         -e "s|^BAND_10M_BEACONS=.*|BAND_10M_BEACONS=${BAND_10M_BEACONS}|" \
+        -e "s|^BAND_20M_BEACONS=.*|BAND_20M_BEACONS=${BAND_20M_BEACONS}|" \
+        -e "s|^BAND_15M_BEACONS=.*|BAND_15M_BEACONS=${BAND_15M_BEACONS}|" \
         -e "s|^BAND_6M=.*|BAND_6M=${BAND_6M}|" \
         -e "s|^BAND_6M_BEACONS=.*|BAND_6M_BEACONS=${BAND_6M_BEACONS}|" \
         .env.example > .env
