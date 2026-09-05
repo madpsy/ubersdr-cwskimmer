@@ -181,14 +181,14 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 
 #### NCDXF beacon segments (96 kHz mode)
 
-| Variable | Default | Center Freq | Decodes | Description |
-|----------|---------|-------------|---------|-------------|
-| `BAND_20M_BEACONS` | `true` | 14.100 MHz | 14.095-14.105 MHz | 20m NCDXF beacon slot |
-| `BAND_15M_BEACONS` | `true` | 21.150 MHz | 21.145-21.155 MHz | 15m NCDXF beacon slot |
+| Variable | Default | Center Freq | Description |
+|----------|---------|-------------|-------------|
+| `BAND_20M_BEACONS` | `false` | 14.100 MHz | 20m NCDXF beacon slot |
+| `BAND_15M_BEACONS` | `false` | 21.150 MHz | 15m NCDXF beacon slot |
 
-A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that can, with a CW segment of its own so the flag switches real decoders on and off.
+A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that does reach them, independently of `BAND_20M` / `BAND_15M`, at the cost of one of the eight SkimSrv slots per instance.
 
-They are **independent** of `BAND_20M` / `BAND_15M` — enable a beacon segment with its parent band off to skim beacons only, or with it on to cover both. Each costs one of the eight SkimSrv slots per instance.
+> **Known issue:** SkimSrv allocates **no decoders** to these two channels, so they occupy a slot and produce no spots. Every other channel has a `CwSegments` entry of its own; the nearest entries to 14.100 and 21.150 (`14.000-14.105` and `21.000-21.155`) sit almost entirely under the main 20m/15m channels. Splitting those entries to give the beacon channels their own took `CwSegments` from 14 entries to 16, at which point SkimSrv spun up zero decoders on nearly every band — so the list has to stay at 14 and this is unfixed. Leave both `false` unless you are testing.
 
 At 192 kHz the 182 kHz-wide 20m and 15m channels already cover 14.100 and 21.150, so `SegmentSel192` has no entry for them and both settings are ignored.
 
@@ -563,8 +563,8 @@ BAND_15M=true
 BAND_12M=true
 BAND_10M=true
 BAND_10M_BEACONS=true
-BAND_20M_BEACONS=true   # 14.100 MHz NCDXF beacons, 96 kHz mode only
-BAND_15M_BEACONS=true   # 21.150 MHz NCDXF beacons, 96 kHz mode only
+BAND_20M_BEACONS=false  # 14.100 MHz NCDXF beacons, 96 kHz only — see known issue
+BAND_15M_BEACONS=false  # 21.150 MHz NCDXF beacons, 96 kHz only — see known issue
 BAND_6M=false           # 50 MHz — needs a receiver that tunes above 30 MHz
 BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 ```
@@ -586,8 +586,8 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 | 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
 | 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
 | 6m beacons | 50.491 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
-| 20m beacons | 14.100 MHz | 14.095-14.105 MHz | NCDXF beacons, 96 kHz mode only |
-| 15m beacons | 21.150 MHz | 21.145-21.155 MHz | NCDXF beacons, 96 kHz mode only |
+| 20m beacons | 14.100 MHz | (no segment of its own) | NCDXF beacons, 96 kHz mode only |
+| 15m beacons | 21.150 MHz | (no segment of its own) | NCDXF beacons, 96 kHz mode only |
 
 ### Technical Details
 
