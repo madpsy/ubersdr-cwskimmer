@@ -470,6 +470,12 @@ fi
 cp "$PATH_INI_AGGREGATOR" /root/
 chmod oag-r "$PATH_INI_AGGREGATOR"
 
+# Reduced-depth IQ compression margin in dB for the UberSDR driver
+# 26 = driver default, 0 = off (lossless), otherwise 15-60. The driver refuses
+# anything else and falls back to lossless, so pass the value through unclamped.
+: ${MIN_MARGIN:=26}
+MIN_MARGIN_ESC=$(printf '%s\n' "$MIN_MARGIN" | sed 's/[[\.*^$/]/\\&/g')
+
 # Initialize UberSDRIntf.ini if it's empty (bind mount created empty file on first run)
 if [ -f "$PATH_INI_UBERSDR" ] && [ ! -s "$PATH_INI_UBERSDR" ]; then
     echo "Initializing empty UberSDRIntf.ini with template..."
@@ -489,14 +495,22 @@ fi
 # Configure UberSDR driver - always set from .env values
 echo "Configuring UberSDR driver at $PATH_INI_UBERSDR"
 if [ -f "$PATH_INI_UBERSDR" ]; then
-    echo "Setting UberSDR driver with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
+    echo "Setting UberSDR driver with host: $UBERSDR_HOST, port: $UBERSDR_PORT, min_margin: $MIN_MARGIN"
     # Use temp file for bind-mounted files (sed -i doesn't work on bind mounts)
     # Escape special characters in variables for sed
     UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
     UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
 
     sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR" | \
-    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR.tmp"
+    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" | \
+    sed "s/^min_margin=.*/min_margin=$MIN_MARGIN_ESC/g" > "$PATH_INI_UBERSDR.tmp"
+    # Older driver inis (and the empty-file template above) have no
+    # min_margin line at all - insert one into [Server] so the setting
+    # is always explicit rather than falling back to the driver default
+    if ! grep -q "^min_margin=" "$PATH_INI_UBERSDR.tmp"; then
+        sed "s/^\[Server\]/[Server]\\nmin_margin=$MIN_MARGIN_ESC/" "$PATH_INI_UBERSDR.tmp" > "$PATH_INI_UBERSDR.tmp2"
+        mv "$PATH_INI_UBERSDR.tmp2" "$PATH_INI_UBERSDR.tmp"
+    fi
     cat "$PATH_INI_UBERSDR.tmp" > "$PATH_INI_UBERSDR"
     rm -f "$PATH_INI_UBERSDR.tmp"
     echo "UberSDRIntf.ini configured successfully"
@@ -523,14 +537,22 @@ fi
 # Configure UberSDR driver for instance 2 - always set from .env values
 echo "Configuring UberSDR driver for instance 2 at $PATH_INI_UBERSDR_2"
 if [ -f "$PATH_INI_UBERSDR_2" ]; then
-    echo "Setting UberSDR driver instance 2 with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
+    echo "Setting UberSDR driver instance 2 with host: $UBERSDR_HOST, port: $UBERSDR_PORT, min_margin: $MIN_MARGIN"
     # Use temp file for bind-mounted files (sed -i doesn't work on bind mounts)
     # Escape special characters in variables for sed
     UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
     UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
 
     sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR_2" | \
-    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR_2.tmp"
+    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" | \
+    sed "s/^min_margin=.*/min_margin=$MIN_MARGIN_ESC/g" > "$PATH_INI_UBERSDR_2.tmp"
+    # Older driver inis (and the empty-file template above) have no
+    # min_margin line at all - insert one into [Server] so the setting
+    # is always explicit rather than falling back to the driver default
+    if ! grep -q "^min_margin=" "$PATH_INI_UBERSDR_2.tmp"; then
+        sed "s/^\[Server\]/[Server]\\nmin_margin=$MIN_MARGIN_ESC/" "$PATH_INI_UBERSDR_2.tmp" > "$PATH_INI_UBERSDR_2.tmp2"
+        mv "$PATH_INI_UBERSDR_2.tmp2" "$PATH_INI_UBERSDR_2.tmp"
+    fi
     cat "$PATH_INI_UBERSDR_2.tmp" > "$PATH_INI_UBERSDR_2"
     rm -f "$PATH_INI_UBERSDR_2.tmp"
     echo "UberSDRIntf-2.ini configured successfully"
@@ -557,12 +579,20 @@ fi
 # Configure UberSDR driver for RttySkimServ - always set from .env values
 echo "Configuring UberSDR driver for RttySkimServ at $PATH_INI_UBERSDR_RTTY"
 if [ -f "$PATH_INI_UBERSDR_RTTY" ]; then
-    echo "Setting UberSDR driver (RttySkimServ) with host: $UBERSDR_HOST, port: $UBERSDR_PORT"
+    echo "Setting UberSDR driver (RttySkimServ) with host: $UBERSDR_HOST, port: $UBERSDR_PORT, min_margin: $MIN_MARGIN"
     UBERSDR_HOST_ESC=$(printf '%s\n' "$UBERSDR_HOST" | sed 's/[[\.*^$/]/\\&/g')
     UBERSDR_PORT_ESC=$(printf '%s\n' "$UBERSDR_PORT" | sed 's/[[\.*^$/]/\\&/g')
 
     sed "s/^Host=.*/Host=$UBERSDR_HOST_ESC/g" "$PATH_INI_UBERSDR_RTTY" | \
-    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" > "$PATH_INI_UBERSDR_RTTY.tmp"
+    sed "s/^Port=.*/Port=$UBERSDR_PORT_ESC/g" | \
+    sed "s/^min_margin=.*/min_margin=$MIN_MARGIN_ESC/g" > "$PATH_INI_UBERSDR_RTTY.tmp"
+    # Older driver inis (and the empty-file template above) have no
+    # min_margin line at all - insert one into [Server] so the setting
+    # is always explicit rather than falling back to the driver default
+    if ! grep -q "^min_margin=" "$PATH_INI_UBERSDR_RTTY.tmp"; then
+        sed "s/^\[Server\]/[Server]\\nmin_margin=$MIN_MARGIN_ESC/" "$PATH_INI_UBERSDR_RTTY.tmp" > "$PATH_INI_UBERSDR_RTTY.tmp2"
+        mv "$PATH_INI_UBERSDR_RTTY.tmp2" "$PATH_INI_UBERSDR_RTTY.tmp"
+    fi
     cat "$PATH_INI_UBERSDR_RTTY.tmp" > "$PATH_INI_UBERSDR_RTTY"
     rm -f "$PATH_INI_UBERSDR_RTTY.tmp"
     echo "UberSDRIntf.ini (RttySkimServ) configured successfully"

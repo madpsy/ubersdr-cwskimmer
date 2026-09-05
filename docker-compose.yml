@@ -16,6 +16,8 @@ services:
             # UberSDR Configuration
             - UBERSDR_HOST=${UBERSDR_HOST:-ubersdr}
             - UBERSDR_PORT=${UBERSDR_PORT:-8080}
+            # Reduced-depth IQ compression margin in dB (26 = default, 0 = lossless)
+            - MIN_MARGIN=${MIN_MARGIN:-26}
 
             # Frequency Calibration
             - FREQ_CALIBRATION=${FREQ_CALIBRATION:-1}
