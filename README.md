@@ -591,7 +591,7 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 
 ### Technical Details
 
-The `SegmentSel192` parameter is a 13-character binary string where each position corresponds to an entry in `CenterFreqs192`:
+`SegmentSel` is a binary string with one position per entry in the instance's `CenterFreqs` list. Because each instance is given a table of only its own channels, the mask it receives is all ones; the fixed 13- and 16-character forms below describe the whole band plan, which is what an instance with no bands assigned still gets:
 
 ```
 Position: 0  1  2  3  4  5  6  7  8  9  10       11 12
@@ -603,7 +603,11 @@ In 96 kHz mode the equivalent `SegmentSel96` is 16 characters, because that mode
 
 The startup script automatically builds this string based on your `BAND_*` environment variables, so you don't need to manually calculate the binary values.
 
-#### Per-instance CW segment lists
+#### Per-instance channel tables
+
+Each instance is configured as if it were the only skimmer: `CenterFreqs`, `SegmentSel` and `CwSegments` all describe just the bands assigned to it. An instance running eight bands gets a table of eight centre frequencies, a mask of eight ones, and the segments for those eight bands — not the full 16-entry table with a mask selecting part of it.
+
+That matters because the three settings have to agree with each other. Writing the whole centre table to both instances while tailoring only `CwSegments` leaves the segment list describing a different set of channels from the table beside it.
 
 `CwSegments` is built per instance and per sample rate, from the bands that instance actually runs, rather than writing the whole band plan to both.
 
@@ -611,14 +615,20 @@ Two reasons. **Length:** SkimSrv has a ceiling here — a 16-entry list made *ev
 
 Clipping is also what earns the NCDXF beacon channels their slot. 15m's segment clipped to the 21.150 channel is `21.1045-21.1550` — the 50 kHz the 21.045 channel cannot reach — instead of nothing.
 
-An instance with no bands assigned keeps the full 14-entry plan. Both generated lists are printed in the startup log, so you can see exactly what each instance got:
+An instance with no bands assigned keeps the full plan with an all-zero mask, which is what it had before and decodes nothing either way. Everything each instance was given is printed in the startup log:
 
 ```
+Instance 1 bands: 160M 80M 60M 40M 30M 20M 17M 15M
+Instance 1 CenterFreqs96: 1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500
+Instance 1 SegmentSel96: 11111111
 Instance 1 CwSegments (9 entries): 1800000-1840000,3500000-3570000,5261000-5352000,
   7000000-7035000,7045000-7070000,10100000-10130000,14000000-14091000,
   18068000-18115000,21000000-21091000
-Instance 2 CwSegments (5 entries): 24890000-24935000,28000000-28070000,
-  28200000-28270500,14054500-14105000,21104500-21155000
+Instance 2 bands: 12M 10M 10M_BEACONS 6M 6M_BEACONS 20M_BEACONS 15M_BEACONS
+Instance 2 CenterFreqs96: 24935500,28045500,28225000,50054500,50445500,14100000,21150000
+Instance 2 SegmentSel96: 1111111
+Instance 2 CwSegments (7 entries): 24890000-24935000,28000000-28070000,28200000-28270500,
+  50009000-50100000,50400000-50491000,14054500-14105000,21104500-21155000
 ```
 
 SkimSrv accepts at most 8 segments per instance, and the container runs two instances (ports 7300 and 7301) — so up to 16 bands total. The first 8 enabled bands go to instance 1 and the remainder to instance 2. If you enable more than 16, the excess is listed as a warning in the startup log rather than being silently dropped.

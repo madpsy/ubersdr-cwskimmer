@@ -288,6 +288,8 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 11 12 13 14 15)
         SEL_LENGTH=16
         USABLE_HALF=45500
+        CENTER_FREQ_KEY="CenterFreqs96"
+        CENTER_FREQ_DEFAULTS="$CENTER_FREQS_96"
         IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_96"
     else
         SAMPLE_RATE=192
@@ -303,6 +305,8 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 10 11 12)
         SEL_LENGTH=13
         USABLE_HALF=91000
+        CENTER_FREQ_KEY="CenterFreqs192"
+        CENTER_FREQ_DEFAULTS="$CENTER_FREQS_192"
         IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_192"
     fi
 
@@ -371,31 +375,51 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         done
     fi
 
-    # Build zero-filled SegmentSel strings of correct length
-    SEGMENT_SEL_1=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
-    SEGMENT_SEL_2=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
-
-    INSTANCE_1_NAMES=()
-    INSTANCE_2_NAMES=()
+    # Each instance gets a configuration describing only its own channels:
+    # CenterFreqs holds just the centres it runs, so SegmentSel is all ones over
+    # that shorter table, and CwSegments carries only those bands' segments in
+    # the same order. Previously both instances got the full 16-entry centre
+    # table and only the mask differed, which left CwSegments describing a set
+    # of channels the table did not agree with.
+    #
+    # An instance with no bands keeps the whole plan with an all-zero mask -
+    # what it had before, and it decodes nothing either way.
+    INSTANCE_1_NAMES=(); INSTANCE_1_FREQS=()
+    INSTANCE_2_NAMES=(); INSTANCE_2_FREQS=()
 
     for (( i=0; i<ENABLED_COUNT && i<MAX_BANDS_PER_INSTANCE; i++ )); do
         seg_idx=${ENABLED_BANDS[$i]}
-        SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
         INSTANCE_1_NAMES+=("${ENABLED_NAMES[$i]}")
+        INSTANCE_1_FREQS+=("${CENTER_FREQ_LIST[$seg_idx]}")
     done
 
     for (( i=MAX_BANDS_PER_INSTANCE; i<ENABLED_COUNT && i<MAX_BANDS_TOTAL; i++ )); do
         seg_idx=${ENABLED_BANDS[$i]}
-        SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$seg_idx}1${SEGMENT_SEL_2:$((seg_idx+1))}"
         INSTANCE_2_NAMES+=("${ENABLED_NAMES[$i]}")
+        INSTANCE_2_FREQS+=("${CENTER_FREQ_LIST[$seg_idx]}")
     done
 
-    # An instance with no bands keeps the whole-plan list: it decodes nothing
-    # either way, and an empty CwSegments is not worth finding out about.
-    CW_SEGMENTS_1=$(build_segment_list "${INSTANCE_1_NAMES[@]}")
-    CW_SEGMENTS_2=$(build_segment_list "${INSTANCE_2_NAMES[@]}")
-    [ -n "$CW_SEGMENTS_1" ] || CW_SEGMENTS_1="$CW_SEGMENTS"
-    [ -n "$CW_SEGMENTS_2" ] || CW_SEGMENTS_2="$CW_SEGMENTS"
+    join_commas() { local IFS=','; echo "$*"; }
+
+    if [ ${#INSTANCE_1_NAMES[@]} -gt 0 ]; then
+        CENTER_FREQS_1=$(join_commas "${INSTANCE_1_FREQS[@]}")
+        SEGMENT_SEL_1=$(printf '1%.0s' $(seq 1 ${#INSTANCE_1_NAMES[@]}))
+        CW_SEGMENTS_1=$(build_segment_list "${INSTANCE_1_NAMES[@]}")
+    else
+        CENTER_FREQS_1="$CENTER_FREQ_DEFAULTS"
+        SEGMENT_SEL_1=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
+        CW_SEGMENTS_1="$CW_SEGMENTS"
+    fi
+
+    if [ ${#INSTANCE_2_NAMES[@]} -gt 0 ]; then
+        CENTER_FREQS_2=$(join_commas "${INSTANCE_2_FREQS[@]}")
+        SEGMENT_SEL_2=$(printf '1%.0s' $(seq 1 ${#INSTANCE_2_NAMES[@]}))
+        CW_SEGMENTS_2=$(build_segment_list "${INSTANCE_2_NAMES[@]}")
+    else
+        CENTER_FREQS_2="$CENTER_FREQ_DEFAULTS"
+        SEGMENT_SEL_2=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
+        CW_SEGMENTS_2="$CW_SEGMENTS"
+    fi
 
     if [ $ENABLED_COUNT -le $MAX_BANDS_PER_INSTANCE ]; then
         echo "Instance 1: all $ENABLED_COUNT enabled band(s)"
@@ -415,7 +439,11 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         printf "  %-14s %s\n" "${BAND_NAMES[$i]}:" "${BAND_VARS[$i]}"
     done
     echo ""
+    echo "Instance 1 bands: ${INSTANCE_1_NAMES[*]:-none}"
+    echo "Instance 1 ${CENTER_FREQ_KEY}: $CENTER_FREQS_1"
     echo "Instance 1 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_1"
+    echo "Instance 2 bands: ${INSTANCE_2_NAMES[*]:-none}"
+    echo "Instance 2 ${CENTER_FREQ_KEY}: $CENTER_FREQS_2"
     echo "Instance 2 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_2"
     echo "Instance 1 CwSegments ($(printf '%s' "$CW_SEGMENTS_1" | awk -F, '{print NF}') entries): $CW_SEGMENTS_1"
     echo "Instance 2 CwSegments ($(printf '%s' "$CW_SEGMENTS_2" | awk -F, '{print NF}') entries): $CW_SEGMENTS_2"
@@ -424,6 +452,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     echo "Configuring SkimSrv instance 1..."
     sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" "$PATH_INI_SKIMSRV" | \
     sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
+    sed "s/^${CENTER_FREQ_KEY}=.*/${CENTER_FREQ_KEY}=$CENTER_FREQS_1/g" | \
     sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS_1|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_1/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
@@ -487,6 +516,7 @@ EOF
     sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
     sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" | \
     sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
+    sed "s/^${CENTER_FREQ_KEY}=.*/${CENTER_FREQ_KEY}=$CENTER_FREQS_2/g" | \
     sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS_2|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_2/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
