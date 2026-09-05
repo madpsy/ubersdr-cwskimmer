@@ -181,14 +181,14 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 
 #### NCDXF beacon segments (96 kHz mode)
 
-| Variable | Default | Center Freq | Description |
-|----------|---------|-------------|-------------|
-| `BAND_20M_BEACONS` | `false` | 14.100 MHz | 20m NCDXF beacon slot |
-| `BAND_15M_BEACONS` | `false` | 21.150 MHz | 15m NCDXF beacon slot |
+| Variable | Default | Center Freq | Decodes | Description |
+|----------|---------|-------------|---------|-------------|
+| `BAND_20M_BEACONS` | `true` | 14.100 MHz | 14.095-14.105 MHz | 20m NCDXF beacon slot |
+| `BAND_15M_BEACONS` | `true` | 21.150 MHz | 21.145-21.155 MHz | 15m NCDXF beacon slot |
 
-A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that does reach them, independently of `BAND_20M` / `BAND_15M`, at the cost of one of the eight SkimSrv slots per instance.
+A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that does, with a `CwSegments` entry of its own so the flag switches real decoders on and off.
 
-> **Known issue:** SkimSrv allocates **no decoders** to these two channels, so they occupy a slot and produce no spots. Every other channel has a `CwSegments` entry of its own; the nearest entries to 14.100 and 21.150 (`14.000-14.105` and `21.000-21.155`) sit almost entirely under the main 20m/15m channels. Splitting those entries to give the beacon channels their own took `CwSegments` from 14 entries to 16, at which point SkimSrv spun up zero decoders on nearly every band — so the list has to stay at 14 and this is unfixed. Leave both `false` unless you are testing.
+They are **independent** of `BAND_20M` / `BAND_15M` — enable a beacon segment with its parent band off to skim beacons only, or with it on to cover both. Each costs one of the eight SkimSrv slots per instance.
 
 At 192 kHz the 182 kHz-wide 20m and 15m channels already cover 14.100 and 21.150, so `SegmentSel192` has no entry for them and both settings are ignored.
 
@@ -563,8 +563,8 @@ BAND_15M=true
 BAND_12M=true
 BAND_10M=true
 BAND_10M_BEACONS=true
-BAND_20M_BEACONS=false  # 14.100 MHz NCDXF beacons, 96 kHz only — see known issue
-BAND_15M_BEACONS=false  # 21.150 MHz NCDXF beacons, 96 kHz only — see known issue
+BAND_20M_BEACONS=true   # 14.100 MHz NCDXF beacons, 96 kHz mode only
+BAND_15M_BEACONS=true   # 21.150 MHz NCDXF beacons, 96 kHz mode only
 BAND_6M=false           # 50 MHz — needs a receiver that tunes above 30 MHz
 BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 ```
@@ -586,8 +586,8 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 | 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
 | 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
 | 6m beacons | 50.491 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
-| 20m beacons | 14.100 MHz | (no segment of its own) | NCDXF beacons, 96 kHz mode only |
-| 15m beacons | 21.150 MHz | (no segment of its own) | NCDXF beacons, 96 kHz mode only |
+| 20m beacons | 14.100 MHz | 14.095-14.105 MHz | NCDXF beacons, 96 kHz mode only |
+| 15m beacons | 21.150 MHz | 21.145-21.155 MHz | NCDXF beacons, 96 kHz mode only |
 
 ### Technical Details
 
@@ -602,6 +602,17 @@ Example:  0111111111100  (all HF bands except 160m, no 6m)
 In 96 kHz mode the equivalent `SegmentSel96` is 16 characters, because that mode carries extra centre frequencies for the 20m and 15m NCDXF beacon segments (positions 14 and 15, driven by `BAND_20M_BEACONS` and `BAND_15M_BEACONS`).
 
 The startup script automatically builds this string based on your `BAND_*` environment variables, so you don't need to manually calculate the binary values.
+
+#### Per-instance CW segment lists
+
+`CwSegments` is built per instance too, from the bands that instance actually runs, rather than writing the whole band plan to both. SkimSrv has a ceiling on the length of this list — a 16-entry list made **every** instance spin up zero decoders, on all bands — and a tailored list stays far below it: nine entries at worst for a full instance 1, and typically three or four for instance 2. That headroom is what lets the 20m and 15m beacon channels carry a segment of their own.
+
+Where a band and its beacon channel land on the same instance, the parent segment is truncated (`14.000-14.095`) and the beacon segment carries the top 10 kHz (`14.095-14.105`), so the two never overlap. An instance with no bands assigned keeps the full 14-entry plan. The generated lists are printed in the startup log:
+
+```
+Instance 1 CwSegments (9 entries): 1800000-1840000,3500000-3570000,...
+Instance 2 CwSegments (4 entries): 28000000-28070000,28200000-28300000,14095000-14105000,21145000-21155000
+```
 
 SkimSrv accepts at most 8 segments per instance, and the container runs two instances (ports 7300 and 7301) — so up to 16 bands total. The first 8 enabled bands go to instance 1 and the remainder to instance 2. If you enable more than 16, the excess is listed as a warning in the startup log rather than being silently dropped.
 

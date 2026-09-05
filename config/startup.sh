@@ -36,12 +36,63 @@ mkdir -p /var/run/restart-trigger
 CENTER_FREQS_48="1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250"
 CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50054500,50445500,14100000,21150000"
 CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50491000"
-# DO NOT add entries to this list. It has 14 entries and SkimSrv will not take
-# more: splitting the 20m and 15m entries in two (to give the 96 kHz NCDXF
-# beacon centres a segment of their own) took it to 16 and SkimSrv then spun up
-# zero decoders on nearly every band, not just the new ones. Reverted; the
-# beacon-channel decoder problem needs a fix that keeps this list at 14.
+# The whole-plan segment list: 14 entries, used for the .ini templates and as a
+# fallback for an instance that has no bands. Do not grow it - SkimSrv has a
+# ceiling here, and pushing this list to 16 entries made every instance spin up
+# zero decoders, on all bands, not just the added ones. Each instance gets a
+# list built from its own bands instead (see build_segment_list).
 CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
+
+# ── Per-instance CW segment lists ─────────────────────────────────────────────
+# The two SkimSrv instances have separate .ini files and each runs only the
+# bands assigned to it, so neither needs the whole plan: a full instance 1 needs
+# nine entries and a typical instance 2 three. Building each list from that
+# instance's own bands keeps both well under the ceiling above, and leaves the
+# room needed to give the 96 kHz NCDXF beacon channels a segment of their own -
+# without which SkimSrv allocates them no decoders at all.
+#
+# 20m and 15m need care: their segments already run past the NCDXF frequency
+# (14.105 and 21.155), so when a band and its beacon channel land on the same
+# instance the parent is truncated and the beacon segment carries the top
+# 10 kHz, rather than emitting two overlapping ranges. Where the beacon channel
+# is not on the instance - which includes every 192 kHz configuration, since
+# the beacon centres exist only at 96 kHz - the parent keeps its full range and
+# the list is exactly what that instance gets today.
+#
+# Takes the band names on one instance, prints its CwSegments value.
+build_segment_list() {
+    local names=" $* " out="" name segs seg
+    for name in "$@"; do
+        case "$name" in
+            160M)        segs="1800000-1840000" ;;
+            80M)         segs="3500000-3570000" ;;
+            60M)         segs="5258500-5358000" ;;
+            40M)         segs="7000000-7035000 7045000-7070000" ;;
+            30M)         segs="10100000-10130000" ;;
+            20M)         case "$names" in
+                             *" 20M_BEACONS "*) segs="14000000-14095000" ;;
+                             *)                 segs="14000000-14105000" ;;
+                         esac ;;
+            17M)         segs="18068000-18115000" ;;
+            15M)         case "$names" in
+                             *" 15M_BEACONS "*) segs="21000000-21145000" ;;
+                             *)                 segs="21000000-21155000" ;;
+                         esac ;;
+            12M)         segs="24890000-24935000" ;;
+            10M)         segs="28000000-28070000" ;;
+            10M_BEACONS) segs="28200000-28300000" ;;
+            6M)          segs="50000000-50100000" ;;
+            6M_BEACONS)  segs="50400000-50500000" ;;
+            20M_BEACONS) segs="14095000-14105000" ;;
+            15M_BEACONS) segs="21145000-21155000" ;;
+            *)           segs="" ;;
+        esac
+        for seg in $segs; do
+            out="${out:+$out,}$seg"
+        done
+    done
+    echo "$out"
+}
 
 # ── UberSDR tuning range probe ────────────────────────────────────────────────
 # Ask the UberSDR instance what it can actually tune. Bands outside its hardware
@@ -324,15 +375,27 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     SEGMENT_SEL_1=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
     SEGMENT_SEL_2=$(printf '0%.0s' $(seq 1 $SEL_LENGTH))
 
+    INSTANCE_1_NAMES=()
+    INSTANCE_2_NAMES=()
+
     for (( i=0; i<ENABLED_COUNT && i<MAX_BANDS_PER_INSTANCE; i++ )); do
         seg_idx=${ENABLED_BANDS[$i]}
         SEGMENT_SEL_1="${SEGMENT_SEL_1:0:$seg_idx}1${SEGMENT_SEL_1:$((seg_idx+1))}"
+        INSTANCE_1_NAMES+=("${ENABLED_NAMES[$i]}")
     done
 
     for (( i=MAX_BANDS_PER_INSTANCE; i<ENABLED_COUNT && i<MAX_BANDS_TOTAL; i++ )); do
         seg_idx=${ENABLED_BANDS[$i]}
         SEGMENT_SEL_2="${SEGMENT_SEL_2:0:$seg_idx}1${SEGMENT_SEL_2:$((seg_idx+1))}"
+        INSTANCE_2_NAMES+=("${ENABLED_NAMES[$i]}")
     done
+
+    # An instance with no bands keeps the whole-plan list: it decodes nothing
+    # either way, and an empty CwSegments is not worth finding out about.
+    CW_SEGMENTS_1=$(build_segment_list "${INSTANCE_1_NAMES[@]}")
+    CW_SEGMENTS_2=$(build_segment_list "${INSTANCE_2_NAMES[@]}")
+    [ -n "$CW_SEGMENTS_1" ] || CW_SEGMENTS_1="$CW_SEGMENTS"
+    [ -n "$CW_SEGMENTS_2" ] || CW_SEGMENTS_2="$CW_SEGMENTS"
 
     if [ $ENABLED_COUNT -le $MAX_BANDS_PER_INSTANCE ]; then
         echo "Instance 1: all $ENABLED_COUNT enabled band(s)"
@@ -354,12 +417,14 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
     echo ""
     echo "Instance 1 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_1"
     echo "Instance 2 ${SEGMENT_SEL_KEY}: $SEGMENT_SEL_2"
+    echo "Instance 1 CwSegments ($(printf '%s' "$CW_SEGMENTS_1" | awk -F, '{print NF}') entries): $CW_SEGMENTS_1"
+    echo "Instance 2 CwSegments ($(printf '%s' "$CW_SEGMENTS_2" | awk -F, '{print NF}') entries): $CW_SEGMENTS_2"
 
     # Configure instance 1
     echo "Configuring SkimSrv instance 1..."
     sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" "$PATH_INI_SKIMSRV" | \
     sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
-    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS|g" | \
+    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS_1|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_1/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7300/g" | \
@@ -422,7 +487,7 @@ EOF
     sed "s/^Square=.*/Square=$SQUARE_ESC/g" | \
     sed "s/^CenterFreqs192=.*/CenterFreqs192=$CENTER_FREQS_192/g" | \
     sed "s/^CenterFreqs96=.*/CenterFreqs96=$CENTER_FREQS_96/g" | \
-    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS|g" | \
+    sed "s|^CwSegments=.*|CwSegments=$CW_SEGMENTS_2|g" | \
     sed "s/^${SEGMENT_SEL_KEY}=.*/${SEGMENT_SEL_KEY}=$SEGMENT_SEL_2/g" | \
     sed "s/^Rate=.*/Rate=$RATE_VALUE/g" | \
     sed "s/^Port=.*/Port=7301/g" | \
