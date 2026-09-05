@@ -44,51 +44,49 @@ CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,210
 CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,7045000-7070000,10100000-10130000,14000000-14105000,18068000-18115000,21000000-21155000,24890000-24935000,28000000-28070000,28200000-28300000,50000000-50100000,50400000-50500000"
 
 # ── Per-instance CW segment lists ─────────────────────────────────────────────
-# The two SkimSrv instances have separate .ini files and each runs only the
-# bands assigned to it, so neither needs the whole plan: a full instance 1 needs
-# nine entries and a typical instance 2 three. Building each list from that
-# instance's own bands keeps both well under the ceiling above, and leaves the
-# room needed to give the 96 kHz NCDXF beacon channels a segment of their own -
-# without which SkimSrv allocates them no decoders at all.
+# Two things are wrong with writing the whole 14-entry plan to both instances.
 #
-# 20m and 15m need care: their segments already run past the NCDXF frequency
-# (14.105 and 21.155), so when a band and its beacon channel land on the same
-# instance the parent is truncated and the beacon segment carries the top
-# 10 kHz, rather than emitting two overlapping ranges. Where the beacon channel
-# is not on the instance - which includes every 192 kHz configuration, since
-# the beacon centres exist only at 96 kHz - the parent keeps its full range and
-# the list is exactly what that instance gets today.
+# First, length: SkimSrv has a ceiling here, and a 16-entry list made every
+# instance spin up zero decoders, on all bands, not just the added ones. Each
+# instance runs only its own bands, so neither needs the whole plan - a full
+# instance 1 needs nine entries and a typical instance 2 four or five.
 #
-# Takes the band names on one instance, prints its CwSegments value.
+# Second, and the reason 15m never decoded anything at 96 kHz: the plan's
+# segments are shaped for the 182 kHz passband of 192 kHz mode. At 96 kHz a
+# channel decodes only 91 kHz, and 15m's segment is 155 kHz wide, 20m's 105 and
+# 60m's 99.5 - none of them fit. Whatever SkimSrv does with a segment that
+# overruns the passband, the part beyond it cannot be decoded at 96 kHz either
+# way, so each segment is clipped to the channel that carries it.
+#
+# Clipping also earns the NCDXF beacon channels their slot: 15m's segment
+# clipped to the 21.150 channel is 21.1045-21.1550, the 50 kHz the 21.045
+# channel cannot reach, rather than nothing at all.
+#
+# Takes the band names on one instance, prints its CwSegments value. Needs
+# BAND_NAMES / BAND_SEG_IDX / CENTER_FREQ_LIST and USABLE_HALF to be set.
 build_segment_list() {
-    local names=" $* " out="" name segs seg
+    local out="" name i idx centre lo hi entry a b
     for name in "$@"; do
-        case "$name" in
-            160M)        segs="1800000-1840000" ;;
-            80M)         segs="3500000-3570000" ;;
-            60M)         segs="5258500-5358000" ;;
-            40M)         segs="7000000-7035000 7045000-7070000" ;;
-            30M)         segs="10100000-10130000" ;;
-            20M)         case "$names" in
-                             *" 20M_BEACONS "*) segs="14000000-14095000" ;;
-                             *)                 segs="14000000-14105000" ;;
-                         esac ;;
-            17M)         segs="18068000-18115000" ;;
-            15M)         case "$names" in
-                             *" 15M_BEACONS "*) segs="21000000-21145000" ;;
-                             *)                 segs="21000000-21155000" ;;
-                         esac ;;
-            12M)         segs="24890000-24935000" ;;
-            10M)         segs="28000000-28070000" ;;
-            10M_BEACONS) segs="28200000-28300000" ;;
-            6M)          segs="50000000-50100000" ;;
-            6M_BEACONS)  segs="50400000-50500000" ;;
-            20M_BEACONS) segs="14095000-14105000" ;;
-            15M_BEACONS) segs="21145000-21155000" ;;
-            *)           segs="" ;;
-        esac
-        for seg in $segs; do
-            out="${out:+$out,}$seg"
+        centre=""
+        for (( i=0; i<${#BAND_NAMES[@]}; i++ )); do
+            if [ "${BAND_NAMES[$i]}" = "$name" ]; then
+                idx="${BAND_SEG_IDX[$i]}"
+                centre="${CENTER_FREQ_LIST[$idx]}"
+                break
+            fi
+        done
+        [ -n "$centre" ] || continue
+        lo=$(( centre - USABLE_HALF ))
+        hi=$(( centre + USABLE_HALF ))
+        for entry in ${CW_SEGMENTS//,/ }; do
+            a="${entry%-*}"
+            b="${entry#*-}"
+            [ "$a" -lt "$lo" ] && a=$lo
+            [ "$b" -gt "$hi" ] && b=$hi
+            # Skip a segment that missed this passband, or clipped to a sliver
+            [ $(( b - a )) -ge 1000 ] || continue
+            case ",$out," in *",$a-$b,"*) continue ;; esac
+            out="${out:+$out,}$a-$b"
         done
     done
     echo "$out"
@@ -289,6 +287,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "6M" "6M_BEACONS" "20M_BEACONS" "15M_BEACONS")
         BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 11 12 13 14 15)
         SEL_LENGTH=16
+        USABLE_HALF=45500
         IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_96"
     else
         SAMPLE_RATE=192
@@ -303,6 +302,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "6M" "6M_BEACONS")
         BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 10 11 12)
         SEL_LENGTH=13
+        USABLE_HALF=91000
         IFS=',' read -r -a CENTER_FREQ_LIST <<< "$CENTER_FREQS_192"
     fi
 
