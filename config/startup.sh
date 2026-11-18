@@ -34,7 +34,7 @@ mkdir -p /var/run/restart-trigger
 # Note the tuning-range gate below still tests centre +/- SAMPLE_RATE/2, not
 # the usable half-width: the SDR has to deliver the full sampled window.
 CENTER_FREQS_48="1822750,3522750,3568250,7022750,10122750,14022750,14068250,18090750,21022750,21068250,24912750,28022750,28068250,50022750,50068250,50113750,50159250"
-CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50054500,50445500,14100000,21150000"
+CENTER_FREQS_96="1845500,3545500,5306500,7045500,10145500,14045500,18113500,21045500,24935500,28045500,28136500,28225000,50054500,50445500,14136500,21136500"
 CENTER_FREQS_192="1891000,3591000,5355000,7091000,10191000,14091000,18159000,21091000,24981000,28091000,28225000,50091000,50491000"
 # The whole-plan segment list: 14 entries, used for the .ini templates and as a
 # fallback for an instance that has no bands. Do not grow it - SkimSrv has a
@@ -59,8 +59,15 @@ CW_SEGMENTS="1800000-1840000,3500000-3570000,5258500-5358000,7000000-7035000,704
 # way, so each segment is clipped to the channel that carries it.
 #
 # Clipping also earns the NCDXF beacon channels their slot: 15m's segment
-# clipped to the 21.150 channel is 21.1045-21.1550, the 50 kHz the 21.045
+# clipped to the 21.1365 channel is 21.091-21.155, the 64 kHz the 21.0455
 # channel cannot reach, rather than nothing at all.
+#
+# The beacon channels are centred at start + 45500 like every other channel,
+# starting exactly where the band's main channel stops (14.091 / 21.091).
+# They used to be centred on the beacon frequencies themselves (14.100 /
+# 21.150), which made 20m's beacon channel reach down to 14.0545 and decode
+# 14.0545-14.091 a second time, duplicating every spot there, while 15m's
+# started at 21.1045 and left 21.091-21.1045 decoded by neither.
 #
 # Takes the band names on one instance, prints its CwSegments value. Needs
 # BAND_NAMES / BAND_SEG_IDX / CENTER_FREQ_LIST and USABLE_HALF to be set.
@@ -283,7 +290,7 @@ if [ -f "$PATH_INI_SKIMSRV" ]; then
         # 0=160m, 1=80m, 2=60m, 3=40m, 4=30m, 5=20m, 6=17m, 7=15m, 8=12m,
         # 9=10m(low CW), 10=10m(high CW, unused), 11=10m beacons(28.225MHz, covers NCDXF 28.200),
         # 12=6m CW(50.050MHz), 13=6m beacons(50.450MHz, IARU R1 50.400-50.500),
-        # 14=20m beacons(14.100MHz, NCDXF), 15=15m beacons(21.150MHz, NCDXF)
+        # 14=20m beacons(14.1365MHz, covers NCDXF 14.100), 15=15m beacons(21.1365MHz, covers NCDXF 21.150)
         BAND_NAMES=("160M" "80M" "60M" "40M" "30M" "20M" "17M" "15M" "12M" "10M" "10M_BEACONS" "6M" "6M_BEACONS" "20M_BEACONS" "15M_BEACONS")
         BAND_SEG_IDX=(0 1 2 3 4 5 6 7 8 9 11 12 13 14 15)
         SEL_LENGTH=16

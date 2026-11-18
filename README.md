@@ -183,10 +183,12 @@ Control which amateur radio bands CW Skimmer monitors. Set each to `true` or `fa
 
 | Variable | Default | Center Freq | Decodes | Description |
 |----------|---------|-------------|---------|-------------|
-| `BAND_20M_BEACONS` | `true` | 14.100 MHz | 14.0545-14.105 MHz | 20m NCDXF beacon slot |
-| `BAND_15M_BEACONS` | `true` | 21.150 MHz | 21.1045-21.155 MHz | 15m NCDXF beacon slot |
+| `BAND_20M_BEACONS` | `true` | 14.1365 MHz | 14.091-14.105 MHz | 20m NCDXF beacon slot |
+| `BAND_15M_BEACONS` | `true` | 21.1365 MHz | 21.091-21.155 MHz | 15m NCDXF beacon slot |
 
 A 96 kHz channel is only 91 kHz wide, so the 20m and 15m channels stop at 14.091 and 21.091 and cannot reach the NCDXF beacon frequencies. These two settings add a channel each that does, with a `CwSegments` entry of its own so the flag switches real decoders on and off.
+
+Each beacon channel starts exactly where its band's main channel stops (14.091 / 21.091), so nothing is decoded twice and nothing is left uncovered. The NCDXF frequencies, 14.100 and 21.150, sit inside them.
 
 They are **independent** of `BAND_20M` / `BAND_15M` — enable a beacon segment with its parent band off to skim beacons only, or with it on to cover both. Each costs one of the eight SkimSrv slots per instance.
 
@@ -586,8 +588,8 @@ BAND_6M_BEACONS=false   # 50.400-50.500 MHz, IARU Region 1 only
 | 10m beacons | 28.225 MHz | 28.200-28.300 MHz | NCDXF and other beacons |
 | 6m | 50.091 MHz | 50.000-50.100 MHz | Sporadic-E and solar max openings |
 | 6m beacons | 50.491 MHz | 50.400-50.500 MHz | IARU Region 1 beacon band |
-| 20m beacons | 14.100 MHz | 14.0545-14.105 MHz | NCDXF beacons, 96 kHz mode only |
-| 15m beacons | 21.150 MHz | 21.1045-21.155 MHz | NCDXF beacons, 96 kHz mode only |
+| 20m beacons | 14.1365 MHz | 14.091-14.105 MHz | NCDXF beacons, 96 kHz mode only |
+| 15m beacons | 21.1365 MHz | 21.091-21.155 MHz | NCDXF beacons, 96 kHz mode only |
 
 ### Technical Details
 
@@ -613,7 +615,7 @@ That matters because the three settings have to agree with each other. Writing t
 
 Two reasons. **Length:** SkimSrv has a ceiling here — a 16-entry list made *every* instance spin up zero decoders, on all bands, not just the added ones. A tailored list stays well below it, nine entries at worst. **Width:** the band plan's segments are shaped for the 182 kHz passband of 192 kHz mode, and at 96 kHz a channel decodes only 91 kHz. 15m's segment is 155 kHz wide, 20m's 105 and 60m's 99.5 — none of them fit, and 15m in particular decoded nothing at all at 96 kHz as a result. Each segment is therefore clipped to the channel that carries it; the part beyond the passband was unreachable at 96 kHz either way.
 
-Clipping is also what earns the NCDXF beacon channels their slot. 15m's segment clipped to the 21.150 channel is `21.1045-21.1550` — the 50 kHz the 21.045 channel cannot reach — instead of nothing.
+Clipping is also what earns the NCDXF beacon channels their slot. 15m's segment clipped to the 21.1365 channel is `21.091-21.155` — the 64 kHz the 21.0455 channel cannot reach — instead of nothing.
 
 An instance with no bands assigned keeps the full plan with an all-zero mask, which is what it had before and decodes nothing either way. Everything each instance was given is printed in the startup log:
 
@@ -625,10 +627,10 @@ Instance 1 CwSegments (9 entries): 1800000-1840000,3500000-3570000,5261000-53520
   7000000-7035000,7045000-7070000,10100000-10130000,14000000-14091000,
   18068000-18115000,21000000-21091000
 Instance 2 bands: 12M 10M 10M_BEACONS 6M 6M_BEACONS 20M_BEACONS 15M_BEACONS
-Instance 2 CenterFreqs96: 24935500,28045500,28225000,50054500,50445500,14100000,21150000
+Instance 2 CenterFreqs96: 24935500,28045500,28225000,50054500,50445500,14136500,21136500
 Instance 2 SegmentSel96: 1111111
 Instance 2 CwSegments (7 entries): 24890000-24935000,28000000-28070000,28200000-28270500,
-  50009000-50100000,50400000-50491000,14054500-14105000,21104500-21155000
+  50009000-50100000,50400000-50491000,14091000-14105000,21091000-21155000
 ```
 
 SkimSrv accepts at most 8 segments per instance, and the container runs two instances (ports 7300 and 7301) — so up to 16 bands total. The first 8 enabled bands go to instance 1 and the remainder to instance 2. If you enable more than 16, the excess is listed as a warning in the startup log rather than being silently dropped.
