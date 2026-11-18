@@ -530,10 +530,23 @@ EOF
 fi
 
 # Configure RBN Aggregator
-echo "Configure RBN Aggregator with Callsign: $CALLSIGN using $PATH_INI_AGGREGATOR"
-#sed -i 's/Skimmer Call=.*/Skimmer Call='$CALLSIGN'/g' "$PATH_INI_AGGREGATOR"
-#cat "$PATH_INI_AGGREGATOR"
-sed -i 's/CW0SKIM/'$CALLSIGN'/g' "$PATH_INI_AGGREGATOR"
+# The Aggregator logs in to each SkimSrv/RttySkimServ telnet port with a
+# callsign, and those servers reject anything that isn't a plain call
+# ("Invalid callsign" for N0CALL-1 or N0CALL/W1). The full CALLSIGN (with
+# -N SSID or /suffix) stays in the servers' own Call= setting, which is the
+# spotter identity RBN sees; only the telnet login uses the base call.
+# Base call: drop any -N SSID, then take the longest /-separated part
+# (EA8/DF4UE -> DF4UE, N2YCH/W1 -> N2YCH).
+AGG_LOGIN_CALL="${CALLSIGN%%-*}"
+_longest=""
+IFS='/' read -ra _parts <<< "$AGG_LOGIN_CALL"
+for _p in "${_parts[@]}"; do
+    [ ${#_p} -gt ${#_longest} ] && _longest="$_p"
+done
+[ -n "$_longest" ] && AGG_LOGIN_CALL="$_longest"
+AGG_LOGIN_CALL_ESC=$(printf '%s\n' "$AGG_LOGIN_CALL" | sed 's/[[\.*^$/&]/\\&/g')
+echo "Configure RBN Aggregator (spotter: $CALLSIGN, telnet login: $AGG_LOGIN_CALL) using $PATH_INI_AGGREGATOR"
+sed -i "s/CW0SKIM/$AGG_LOGIN_CALL_ESC/g" "$PATH_INI_AGGREGATOR"
 
 # Control whether spots are sent to RBN (RBN_SEND_SPOTS=true sends spots, false suppresses them)
 : ${RBN_SEND_SPOTS:=true}
@@ -547,7 +560,7 @@ sed -i "s/^Don't Send Spots to RBN=.*/Don't Send Spots to RBN=$DONT_SEND_RBN/g" 
 
 # Configure Secondary Skimmer 1 to connect to SkimSrv instance 2 (port 7301)
 echo "Configuring Aggregator Secondary Skimmer 1 for SkimSrv instance 2..."
-sed -i "s/^Secondary Skimmer 1 Callsign=.*/Secondary Skimmer 1 Callsign=$CALLSIGN/g" "$PATH_INI_AGGREGATOR"
+sed -i "s/^Secondary Skimmer 1 Callsign=.*/Secondary Skimmer 1 Callsign=$AGG_LOGIN_CALL_ESC/g" "$PATH_INI_AGGREGATOR"
 sed -i 's/^Secondary Skimmer 1 Port=.*/Secondary Skimmer 1 Port=7301/g' "$PATH_INI_AGGREGATOR"
 sed -i 's/^Secondary Skimmer 1 Auto Start=.*/Secondary Skimmer 1 Auto Start=True/g' "$PATH_INI_AGGREGATOR"
 echo "Aggregator configured to connect to both SkimSrv instances (ports 7300 and 7301)"
@@ -557,7 +570,7 @@ echo "Aggregator configured to connect to both SkimSrv instances (ports 7300 and
 : ${RTTYSKIRMSRV_PORT:=7400}
 if [ "$RTTYSKIRMSRV_ENABLED" = "true" ] || [ "$RTTYSKIRMSRV_ENABLED" = "1" ]; then
     echo "Configuring Aggregator Secondary Skimmer 2 for RttySkimServ (port $RTTYSKIRMSRV_PORT)..."
-    sed -i "s/^Secondary Skimmer 2 Callsign=.*/Secondary Skimmer 2 Callsign=$CALLSIGN/g" "$PATH_INI_AGGREGATOR"
+    sed -i "s/^Secondary Skimmer 2 Callsign=.*/Secondary Skimmer 2 Callsign=$AGG_LOGIN_CALL_ESC/g" "$PATH_INI_AGGREGATOR"
     sed -i "s/^Secondary Skimmer 2 Port=.*/Secondary Skimmer 2 Port=$RTTYSKIRMSRV_PORT/g" "$PATH_INI_AGGREGATOR"
     sed -i 's/^Secondary Skimmer 2 Auto Start=.*/Secondary Skimmer 2 Auto Start=True/g' "$PATH_INI_AGGREGATOR"
     echo "Aggregator configured to connect to RttySkimServ on port $RTTYSKIRMSRV_PORT"
